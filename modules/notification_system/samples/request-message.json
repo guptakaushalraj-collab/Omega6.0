@@ -1,9 +1,9 @@
 {
   "recipient_type": "worker",
-  "recipient_id": "wrk_08278df98e7c",
+  "recipient_id": "wrk_f19eb1011d3f",
   "channel": "in_app",
   "body": "New pickup assigned, 0.43 km away.",
-  "subject_ref": "bin_534faeb174b4",
+  "subject_ref": "bin_369c4c8b8e93",
   "metadata": {
     "priority": "normal"
   }

@@ -225,10 +225,63 @@ curl -X POST http://localhost:4101/api/v1/reports \\
     await get("http://localhost:4104/api/v1/events?limit=6")
   );
 
-  console.log("\nDone.");
 }
 
-main().catch((e) => {
-  console.error("Capture failed:", e.message);
-  process.exit(1);
-});
+/* ------------------------------------------------------- flat alias API */
+
+async function captureAliases() {
+  console.log("\nFlat alias endpoints...");
+
+  const flat = await post("http://localhost:4101/reportBin", {
+    image: PNG_B64,
+    location: "12.972,77.595",
+    address: "MG Road bus stop",
+  });
+  write("bin_reporting", "request-reportBin.json", {
+    image: "<base64 image bytes>",
+    location: "12.972,77.595",
+    address: "MG Road bus stop",
+  });
+  write("bin_reporting", "response-reportBin.json", flat);
+
+  write("bin_reporting", "request-detectWasteType.json", { binId: flat.binId });
+  write(
+    "bin_reporting",
+    "response-detectWasteType.json",
+    await post("http://localhost:4101/detectWasteType", { binId: flat.binId })
+  );
+
+  const bins = encodeURIComponent(
+    JSON.stringify([
+      { id: "bin_a", lat: 12.9784, lng: 77.6408 },
+      { id: "bin_b", lat: 12.9611, lng: 77.6387 },
+      { id: "bin_c", lat: 12.9899, lng: 77.5731 },
+    ])
+  );
+  write(
+    "route_optimizer",
+    "response-optimizeRoute.json",
+    await get(`http://localhost:4103/optimizeRoute?bins=${bins}`)
+  );
+
+  write(
+    "analytics_dashboard",
+    "response-analytics.json",
+    await get("http://localhost:4104/analytics")
+  );
+
+  write("notification_system", "request-notifyPickup.json", { binId: flat.binId });
+  write(
+    "notification_system",
+    "response-notifyPickup.json",
+    await post("http://localhost:4105/notifyPickup", { binId: flat.binId }, notifyKey)
+  );
+}
+
+main()
+  .then(captureAliases)
+  .then(() => console.log("\nDone."))
+  .catch((e) => {
+    console.error("Capture failed:", e.message);
+    process.exit(1);
+  });

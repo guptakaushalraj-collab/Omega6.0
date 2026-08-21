@@ -1,13 +1,13 @@
 {
-  "id": "msg_12fe7599e66d",
+  "id": "msg_4cd15fbc24c7",
   "recipient_type": "admin",
   "recipient_id": null,
   "channel": "in_app",
-  "body": "Ravi Singh cleared bin_534faeb174b4.",
-  "subject_ref": "bin_534faeb174b4",
+  "body": "Ravi Singh cleared bin_369c4c8b8e93.",
+  "subject_ref": "bin_369c4c8b8e93",
   "metadata": {},
   "delivery_status": "delivered",
   "acknowledged": false,
-  "created_at": "2026-08-21T14:04:42.765Z",
+  "created_at": "2026-08-21T20:58:38.076Z",
   "acknowledged_at": null
 }

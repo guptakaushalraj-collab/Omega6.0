@@ -1,9 +1,9 @@
 {
   "type": "bin.collected",
-  "subject_id": "bin_534faeb174b4",
+  "subject_id": "bin_369c4c8b8e93",
   "source": "worker_dashboard",
   "payload": {
-    "worker_id": "wrk_08278df98e7c",
+    "worker_id": "wrk_f19eb1011d3f",
     "waste_type": "mixed"
   }
 }

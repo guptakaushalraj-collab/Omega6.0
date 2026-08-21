@@ -10,10 +10,10 @@
     "acquisition_date": "2026-03-14",
     "original_product": "SignalPost Relay API",
     "original_version_at_acquisition": "2.4.1",
-    "license": "Proprietary — perpetual, transferable with written notice",
+    "license": "Proprietary \u2014 perpetual, transferable with written notice",
     "transferable": true,
     "support_contract_expires": "2027-03-14",
-    "notes": "Retains SignalPost API conventions (/v1 base path, X-API-Key auth, snake_case payloads, vendor error envelope). Deliberately NOT normalized to house style — existing SignalPost client SDKs and vendor documentation must continue to work, and a future buyer expects the API they purchased. Adaptation is carried at the call site."
+    "notes": "Retains SignalPost API conventions (/v1 base path, X-API-Key auth, snake_case payloads, vendor error envelope). Deliberately NOT normalized to house style \u2014 existing SignalPost client SDKs and vendor documentation must continue to work, and a future buyer expects the API they purchased. Adaptation is carried at the call site."
   },
   "trade": {
     "status": "available",
@@ -47,19 +47,60 @@
     "messages",
     "delivery_receipts"
   ],
-  "channels": ["in_app", "sms", "email", "push"],
+  "channels": [
+    "in_app",
+    "sms",
+    "email",
+    "push"
+  ],
   "limits": {
     "retained_messages": 10000,
     "eviction": "oldest-first",
     "max_body_chars": 1000
   },
   "endpoints": [
-    { "method": "POST", "path": "/v1/messages", "summary": "Send a message" },
-    { "method": "GET", "path": "/v1/messages", "summary": "List messages / recipient inbox" },
-    { "method": "GET", "path": "/v1/messages/:id", "summary": "Fetch one message" },
-    { "method": "POST", "path": "/v1/messages/:id/ack", "summary": "Acknowledge (mark read)" },
-    { "method": "POST", "path": "/v1/messages/ack_all", "summary": "Acknowledge a whole inbox" },
-    { "method": "GET", "path": "/v1/channels", "summary": "List delivery channels" },
-    { "method": "GET", "path": "/v1/health", "summary": "Liveness probe" }
+    {
+      "method": "POST",
+      "path": "/v1/messages",
+      "summary": "Send a message"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/messages",
+      "summary": "List messages / recipient inbox"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/messages/:id",
+      "summary": "Fetch one message"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/messages/:id/ack",
+      "summary": "Acknowledge (mark read)"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/messages/ack_all",
+      "summary": "Acknowledge a whole inbox"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/channels",
+      "summary": "List delivery channels"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/health",
+      "summary": "Liveness probe"
+    }
+  ],
+  "alias_endpoints": [
+    {
+      "method": "POST",
+      "path": "/notifyPickup",
+      "summary": "Flat alias for POST /v1/messages; composes a pickup alert, defaults recipient to citizen. Still requires X-API-Key.",
+      "alias_of": "/v1/messages"
+    }
   ]
 }

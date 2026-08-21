@@ -1,6 +1,6 @@
 {
   "report": {
-    "id": "bin_4eb7e99fceab",
+    "id": "bin_823aa637ad91",
     "location": {
       "lat": 12.9,
       "lng": 77.6
@@ -13,7 +13,7 @@
     "classification": null,
     "status": "reported",
     "assignment": null,
-    "reported_at": "2026-08-21T14:04:42.741Z",
+    "reported_at": "2026-08-21T20:58:38.062Z",
     "cleared_at": null
   },
   "degraded": {

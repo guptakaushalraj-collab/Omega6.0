@@ -5,6 +5,7 @@ import cors from "cors";
 import crypto from "node:crypto";
 import { store } from "./store.js";
 import { summarize, trend, EVENT_TYPES } from "./metrics.js";
+import { compatRouter } from "./compat.js";
 
 const app = express();
 const PORT = process.env.PORT || 4104;
@@ -76,6 +77,9 @@ app.get("/api/v1/trends", (req, res) => {
   const days = Math.min(Math.max(Number(req.query.days) || 7, 1), 90);
   res.json({ days, series: trend(store.read().events, days) });
 });
+
+// Flat verb-style alias (GET /analytics), alongside the canonical routes.
+app.use(compatRouter);
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {

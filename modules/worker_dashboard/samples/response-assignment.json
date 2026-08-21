@@ -1,7 +1,7 @@
 {
-  "id": "asg_d142a91aeaa6",
-  "job_ref": "bin_534faeb174b4",
-  "worker_id": "wrk_08278df98e7c",
+  "id": "asg_dcddb4bb9d03",
+  "job_ref": "bin_369c4c8b8e93",
+  "worker_id": "wrk_f19eb1011d3f",
   "worker_name": "Ravi Singh",
   "location": {
     "lat": 12.972,
@@ -12,9 +12,9 @@
   },
   "distance_km": 0.43,
   "status": "completed",
-  "assigned_at": "2026-08-21T14:04:42.722Z",
+  "assigned_at": "2026-08-21T20:58:38.049Z",
   "started_at": null,
-  "completed_at": "2026-08-21T14:04:42.760Z",
+  "completed_at": "2026-08-21T20:58:38.073Z",
   "side_effects": {
     "citizen_notification": "sent",
     "admin_notification": "sent",

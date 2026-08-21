@@ -1,76 +1,76 @@
 [
   {
-    "id": "evt_49457289d5da",
+    "id": "evt_3ed1f57cc308",
     "type": "notification.sent",
-    "subject_id": "bin_534faeb174b4",
+    "subject_id": "bin_369c4c8b8e93",
     "source": "worker_dashboard",
     "payload": {
       "recipient_type": "admin",
       "trigger": "completed"
     },
-    "occurred_at": "2026-08-21T14:04:42.768Z",
-    "received_at": "2026-08-21T14:04:42.769Z",
+    "occurred_at": "2026-08-21T20:58:38.078Z",
+    "received_at": "2026-08-21T20:58:38.078Z",
     "known_type": true
   },
   {
-    "id": "evt_425bdbe0793d",
+    "id": "evt_bc8e23adc01b",
     "type": "notification.sent",
-    "subject_id": "bin_534faeb174b4",
+    "subject_id": "bin_369c4c8b8e93",
     "source": "worker_dashboard",
     "payload": {
       "recipient_type": "citizen",
       "trigger": "completed"
     },
-    "occurred_at": "2026-08-21T14:04:42.767Z",
-    "received_at": "2026-08-21T14:04:42.767Z",
+    "occurred_at": "2026-08-21T20:58:38.077Z",
+    "received_at": "2026-08-21T20:58:38.077Z",
     "known_type": true
   },
   {
-    "id": "evt_31d2f1edd382",
+    "id": "evt_de7e6bb3b5f7",
     "type": "bin.collected",
-    "subject_id": "bin_534faeb174b4",
+    "subject_id": "bin_369c4c8b8e93",
     "source": "worker_dashboard",
     "payload": {
-      "worker_id": "wrk_08278df98e7c"
+      "worker_id": "wrk_f19eb1011d3f"
     },
-    "occurred_at": "2026-08-21T14:04:42.762Z",
-    "received_at": "2026-08-21T14:04:42.762Z",
+    "occurred_at": "2026-08-21T20:58:38.075Z",
+    "received_at": "2026-08-21T20:58:38.075Z",
     "known_type": true
   },
   {
-    "id": "evt_53f3d7683a64",
+    "id": "evt_c4cfdaaec72d",
     "type": "route.optimized",
-    "subject_id": "wrk_08278df98e7c",
+    "subject_id": "wrk_f19eb1011d3f",
     "source": "worker_dashboard",
     "payload": {
       "stop_count": 1
     },
-    "occurred_at": "2026-08-21T14:04:42.757Z",
-    "received_at": "2026-08-21T14:04:42.757Z",
+    "occurred_at": "2026-08-21T20:58:38.071Z",
+    "received_at": "2026-08-21T20:58:38.071Z",
     "known_type": true
   },
   {
-    "id": "evt_494c107eeb59",
+    "id": "evt_42cbf9df01e7",
     "type": "bin.reported",
-    "subject_id": "bin_4eb7e99fceab",
+    "subject_id": "bin_823aa637ad91",
     "source": "bin_reporting",
     "payload": {
       "has_photo": false
     },
-    "occurred_at": "2026-08-21T14:04:42.743Z",
-    "received_at": "2026-08-21T14:04:42.743Z",
+    "occurred_at": "2026-08-21T20:58:38.063Z",
+    "received_at": "2026-08-21T20:58:38.063Z",
     "known_type": true
   },
   {
-    "id": "evt_81405e9fd477",
+    "id": "evt_8c2b04984f54",
     "type": "bin.classified",
-    "subject_id": "bin_534faeb174b4",
+    "subject_id": "bin_369c4c8b8e93",
     "source": "bin_reporting",
     "payload": {
       "waste_type": "mixed"
     },
-    "occurred_at": "2026-08-21T14:04:42.735Z",
-    "received_at": "2026-08-21T14:04:42.735Z",
+    "occurred_at": "2026-08-21T20:58:38.058Z",
+    "received_at": "2026-08-21T20:58:38.058Z",
     "known_type": true
   }
 ]

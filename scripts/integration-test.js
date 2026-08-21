@@ -271,6 +271,131 @@ async function main() {
     unknown.status === 202 && unknown.body.known_type === false
   );
 
+  /* ---------------------------------------------------------- flat aliases */
+  console.log("\nFlat alias API — the five spec'd verb-style endpoints");
+
+  // 1. POST /reportBin  { image, location: "lat,long" }
+  const flatReport = await json(`${URLS.bin_reporting}/reportBin`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      image: PNG_B64,
+      location: "12.9718,77.5949",
+      address: "Alias test",
+    }),
+  });
+  check(
+    "POST /reportBin accepts a \"lat,long\" string",
+    flatReport.status === 201 && typeof flatReport.body?.binId === "string",
+    `status ${flatReport.status}`
+  );
+  check(
+    "…and classifies the base64 image",
+    typeof flatReport.body?.type === "string" && flatReport.body.type.length > 0,
+    `type=${flatReport.body?.type}`
+  );
+
+  const flatBinId = flatReport.body?.binId;
+
+  // Malformed location must be rejected, not silently coerced.
+  const badLoc = await json(`${URLS.bin_reporting}/reportBin`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ location: "not-a-coordinate" }),
+  });
+  check("POST /reportBin rejects a malformed location (400)", badLoc.status === 400);
+
+  // 2. POST /detectWasteType  { binId } -> { type }
+  const detect = await json(`${URLS.bin_reporting}/detectWasteType`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ binId: flatBinId }),
+  });
+  check(
+    "POST /detectWasteType returns { type } for a binId",
+    detect.status === 200 && typeof detect.body?.type === "string",
+    `status ${detect.status}`
+  );
+  const detectMissing = await json(`${URLS.bin_reporting}/detectWasteType`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ binId: "bin_does_not_exist" }),
+  });
+  check("POST /detectWasteType 404s on an unknown binId", detectMissing.status === 404);
+
+  // 3. GET /optimizeRoute?bins=[...]
+  const binsParam = encodeURIComponent(
+    JSON.stringify([
+      { lat: 12.9784, lng: 77.6408 },
+      { lat: 12.9611, lng: 77.6387 },
+      { lat: 12.9899, lng: 77.5731 },
+    ])
+  );
+  const flatRoute = await json(`${URLS.route_optimizer}/optimizeRoute?bins=${binsParam}`);
+  check(
+    "GET /optimizeRoute returns an ordered route",
+    flatRoute.status === 200 &&
+      Array.isArray(flatRoute.body?.order) &&
+      flatRoute.body.order.length === 3,
+    `status ${flatRoute.status}`
+  );
+  check(
+    "…accepting the compact \"lat,long\" string form too",
+    (await json(`${URLS.route_optimizer}/optimizeRoute?bins=${encodeURIComponent(
+      JSON.stringify(["12.9784,77.6408", "12.9611,77.6387"])
+    )}`)).body?.order?.length === 2
+  );
+  // A stateless optimizer cannot resolve bare ids — it must say so, not guess.
+  const bareIds = await json(
+    `${URLS.route_optimizer}/optimizeRoute?bins=${encodeURIComponent(JSON.stringify(["bin_abc"]))}`
+  );
+  check(
+    "GET /optimizeRoute explains it cannot resolve bare bin ids (400)",
+    bareIds.status === 400 && /cannot resolve bin ids/i.test(bareIds.body?.hint || "")
+  );
+
+  // 4. GET /analytics -> charts data
+  const flatAnalytics = await json(`${URLS.analytics_dashboard}/analytics`);
+  check(
+    "GET /analytics returns chart-ready data",
+    flatAnalytics.status === 200 &&
+      flatAnalytics.body?.charts?.daily_activity?.labels?.length === 7,
+    `status ${flatAnalytics.status}`
+  );
+  check(
+    "…with parallel labels/values arrays a chart lib can consume",
+    Array.isArray(flatAnalytics.body?.charts?.waste_mix?.labels) &&
+      flatAnalytics.body.charts.waste_mix.labels.length ===
+        flatAnalytics.body.charts.waste_mix.values.length
+  );
+  check(
+    "…and headline KPIs",
+    typeof flatAnalytics.body?.kpis?.reported === "number"
+  );
+
+  // 5. POST /notifyPickup -> alert to the user
+  const notify = await json(`${URLS.notification_system}/notifyPickup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-API-Key": NOTIFY_KEY },
+    body: JSON.stringify({ binId: flatBinId }),
+  });
+  check(
+    "POST /notifyPickup sends an alert to the citizen",
+    notify.status === 201 && notify.body?.sent === true && notify.body?.recipient === "citizen",
+    `status ${notify.status}`
+  );
+  // The alias must NOT become a way around authentication.
+  const notifyNoKey = await json(`${URLS.notification_system}/notifyPickup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ binId: flatBinId }),
+  });
+  check(
+    "POST /notifyPickup still enforces the API key (401)",
+    notifyNoKey.status === 401,
+    `status ${notifyNoKey.status}`
+  );
+
   /* ------------------------------------------------------------ degradation */
   console.log("\nIndependence — degradation when a dependency is absent");
 

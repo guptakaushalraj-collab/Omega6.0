@@ -123,6 +123,54 @@ assignment. This endpoint is for manual correction, and for operators running
 Reports resolved dependency URLs — the fastest way to spot a misconfigured
 deployment.
 
+## Flat alias endpoints
+
+Additive aliases over the canonical routes above — both call the same
+functions in `src/intake.js`, so they cannot drift apart.
+
+### `POST /reportBin`
+
+```bash
+curl -X POST http://localhost:4101/reportBin -H 'Content-Type: application/json' \
+  -d '{"image":"<base64>","location":"12.972,77.595","address":"MG Road"}'
+```
+
+```json
+{ "binId": "bin_66c5951863fd", "status": "assigned", "type": "mixed",
+  "location": "12.972,77.595", "assignedWorker": "Asha Kumar",
+  "degraded": null, "report": { "...": "full canonical record" } }
+```
+
+`location` takes the compact `"lat,long"` string; `{lat,lng}` objects and
+separate `lat`/`lng` fields also work. `image` is base64 (a `data:` URL prefix
+is tolerated). `binId` is promoted to the top level because it is what a
+caller needs next — to pass into `/detectWasteType` or `/notifyPickup`.
+
+`400` on a malformed or out-of-range location, and on invalid base64.
+
+### `POST /detectWasteType`
+
+```bash
+curl -X POST http://localhost:4101/detectWasteType \
+  -H 'Content-Type: application/json' -d '{"binId":"bin_66c5951863fd"}'
+```
+
+```json
+{ "binId": "bin_66c5951863fd", "type": "mixed", "label": "Mixed",
+  "confidence": 0.73, "cached": true }
+```
+
+Returns the stored classification when one exists rather than paying for
+another inference call — pass `"force": true` to re-run. `404` unknown binId ·
+`422` bin has no photo · `410` photo no longer on disk · `503` classifier down.
+
+**Why this endpoint is here and not in `waste_recognition`:** it is keyed by
+`binId`, and `waste_recognition` is a stateless leaf that only ever sees image
+bytes. Giving it binId lookup would force it to call this module, creating a
+cycle and destroying the dependency-free property that makes it the registry's
+most sellable component. This module owns bin records and already calls the
+classifier, so the lookup belongs here.
+
 ## Dependencies and degradation
 
 | Capability | Env var | If unavailable |

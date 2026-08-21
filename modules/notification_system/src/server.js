@@ -13,6 +13,7 @@ import express from "express";
 import cors from "cors";
 import crypto from "node:crypto";
 import { store } from "./store.js";
+import { compatRouter } from "./compat.js";
 
 const app = express();
 const PORT = process.env.PORT || 4105;
@@ -36,9 +37,9 @@ app.get("/v1/health", (_req, res) =>
   res.json({ ok: true, service: "signalpost-relay", version: "2.4.1" })
 );
 
-// API-key gate. Health is public; everything else requires the key.
-app.use("/v1", (req, res, next) => {
-  if (req.path === "/health") return next();
+// API-key gate. Named so the flat alias below can reuse the identical check
+// rather than re-implementing (or worse, skipping) it.
+function requireApiKey(req, res, next) {
   const supplied = req.get("X-API-Key");
   if (!supplied) {
     return fail(res, 401, "missing_api_key", "X-API-Key header is required.");
@@ -47,7 +48,19 @@ app.use("/v1", (req, res, next) => {
     return fail(res, 403, "invalid_api_key", "The supplied API key was not recognised.");
   }
   next();
+}
+
+// Health is public; every other /v1 route requires the key.
+app.use("/v1", (req, res, next) => {
+  if (req.path === "/health") return next();
+  requireApiKey(req, res, next);
 });
+
+// Flat verb-style alias (POST /notifyPickup) at the ROOT path, as specified.
+// Because it sits outside /v1 it does not inherit the gate above, so the same
+// check is applied explicitly — an unauthenticated notification endpoint is a
+// spam vector, and the alias must not become a way around auth.
+app.use(requireApiKey, compatRouter);
 
 app.get("/v1/channels", (_req, res) => res.json({ channels: CHANNELS }));
 

@@ -2,42 +2,42 @@
   "count": 3,
   "messages": [
     {
-      "id": "msg_12fe7599e66d",
+      "id": "msg_4cd15fbc24c7",
       "recipient_type": "admin",
       "recipient_id": null,
       "channel": "in_app",
-      "body": "Ravi Singh cleared bin_534faeb174b4.",
-      "subject_ref": "bin_534faeb174b4",
+      "body": "Ravi Singh cleared bin_369c4c8b8e93.",
+      "subject_ref": "bin_369c4c8b8e93",
       "metadata": {},
       "delivery_status": "delivered",
       "acknowledged": false,
-      "created_at": "2026-08-21T14:04:42.765Z",
+      "created_at": "2026-08-21T20:58:38.076Z",
       "acknowledged_at": null
     },
     {
-      "id": "msg_3d94f052620c",
+      "id": "msg_e7c46edeb025",
       "recipient_type": "citizen",
       "recipient_id": null,
       "channel": "in_app",
       "body": "The bin you reported has been cleared. Thanks for helping keep the city clean!",
-      "subject_ref": "bin_534faeb174b4",
+      "subject_ref": "bin_369c4c8b8e93",
       "metadata": {},
       "delivery_status": "delivered",
       "acknowledged": false,
-      "created_at": "2026-08-21T14:04:42.762Z",
+      "created_at": "2026-08-21T20:58:38.075Z",
       "acknowledged_at": null
     },
     {
-      "id": "msg_768f5797e12e",
+      "id": "msg_bb62103bf273",
       "recipient_type": "worker",
-      "recipient_id": "wrk_08278df98e7c",
+      "recipient_id": "wrk_f19eb1011d3f",
       "channel": "in_app",
       "body": "New pickup assigned, 0.43 km away.",
-      "subject_ref": "bin_534faeb174b4",
+      "subject_ref": "bin_369c4c8b8e93",
       "metadata": {},
       "delivery_status": "delivered",
       "acknowledged": false,
-      "created_at": "2026-08-21T14:04:42.726Z",
+      "created_at": "2026-08-21T20:58:38.052Z",
       "acknowledged_at": null
     }
   ]

@@ -126,6 +126,35 @@ your own provider (Twilio, SES, FCM) wired into the send path in
 rely on those channels for anything operationally important. `in_app` is fully
 functional and is what the rest of the network uses.
 
+## Flat alias endpoint
+
+### `POST /notifyPickup`
+
+Additive alias over `POST /v1/messages` — same store, same record shape.
+
+```bash
+curl -X POST http://localhost:4105/notifyPickup \
+  -H "X-API-Key: dev-signalpost-key" \
+  -H 'Content-Type: application/json' -d '{"binId":"bin_66c5951863fd"}'
+```
+
+```json
+{ "sent": true, "messageId": "msg_d5fc87abd6f9", "binId": "bin_66c5951863fd",
+  "recipient": "citizen", "channel": "in_app", "delivery_status": "delivered",
+  "message": "Good news — the bin you reported has been picked up. ..." }
+```
+
+Composes a sensible pickup message and defaults the recipient to `citizen` —
+the person who reported the bin, which is what "alert the user" means in this
+flow. Override with `recipient_type` (`citizen`/`worker`/`admin`), `message`,
+`recipient_id`, or `channel`.
+
+**Authentication still applies.** This route sits at the root path, outside
+the `/v1` prefix the API-key gate covers, so the same check is applied to it
+explicitly. An unauthenticated notification endpoint is a spam vector, and an
+alias must never become a way around auth — `401` without a key, `403` with a
+wrong one, both covered by tests.
+
 ## Retention
 
 Retains the most recent `MAX_MESSAGES` (default 10,000), oldest evicted

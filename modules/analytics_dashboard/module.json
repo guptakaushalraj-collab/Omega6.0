@@ -45,11 +45,43 @@
     "configurable_via": "MAX_EVENTS"
   },
   "endpoints": [
-    { "method": "POST", "path": "/api/v1/events", "summary": "Ingest an operational event" },
-    { "method": "GET", "path": "/api/v1/events", "summary": "Query the raw event log" },
-    { "method": "GET", "path": "/api/v1/summary", "summary": "Derived operational metrics" },
-    { "method": "GET", "path": "/api/v1/trends", "summary": "Reported vs collected per day" },
-    { "method": "GET", "path": "/api/v1/event-types", "summary": "Event types included in derived metrics" },
-    { "method": "GET", "path": "/api/v1/health", "summary": "Liveness probe" }
+    {
+      "method": "POST",
+      "path": "/api/v1/events",
+      "summary": "Ingest an operational event"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/events",
+      "summary": "Query the raw event log"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/summary",
+      "summary": "Derived operational metrics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/trends",
+      "summary": "Reported vs collected per day"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/event-types",
+      "summary": "Event types included in derived metrics"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/health",
+      "summary": "Liveness probe"
+    }
+  ],
+  "alias_endpoints": [
+    {
+      "method": "GET",
+      "path": "/analytics",
+      "summary": "Flat alias returning chart-ready series (parallel labels/values arrays) plus KPIs",
+      "alias_of": "/api/v1/summary + /api/v1/trends"
+    }
   ]
 }

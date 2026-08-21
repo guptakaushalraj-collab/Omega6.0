@@ -3,23 +3,24 @@ import "./env.js";
 import express from "express";
 import cors from "cors";
 import crypto from "node:crypto";
-import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import multer from "multer";
 import { store } from "./store.js";
-import { classify, requestAssignment, emit, dependencyConfig } from "./clients.js";
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const UPLOAD_DIR = path.join(__dirname, "..", "uploads");
-fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+import { emit, dependencyConfig } from "./clients.js";
+import {
+  createReport,
+  reclassifyReport,
+  validPoint,
+  UPLOAD_DIR,
+  MAX_IMAGE_BYTES,
+} from "./intake.js";
+import { compatRouter } from "./compat.js";
 
 const app = express();
 const PORT = process.env.PORT || 4101;
-const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
 app.use(cors());
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "12mb" })); // base64 images inflate ~33%
 app.use("/uploads", express.static(UPLOAD_DIR));
 
 const upload = multer({
@@ -39,14 +40,6 @@ const upload = multer({
   },
 });
 
-const id = (p) => `${p}_${crypto.randomBytes(6).toString("hex")}`;
-const validPoint = (p) =>
-  p &&
-  Number.isFinite(Number(p.lat)) &&
-  Number.isFinite(Number(p.lng)) &&
-  Math.abs(Number(p.lat)) <= 90 &&
-  Math.abs(Number(p.lng)) <= 180;
-
 app.get("/api/v1/health", (_req, res) =>
   res.json({
     ok: true,
@@ -58,11 +51,8 @@ app.get("/api/v1/health", (_req, res) =>
 
 /**
  * Intake. Accepts multipart (photo + fields) or plain JSON.
- *
- * The pipeline is: persist first, then enrich. The report is written to disk
- * before any dependency is called, so a citizen's submission is never lost to
- * a downstream outage — classification and dispatch are enrichments layered
- * on afterwards, each independently degradable.
+ * The persist-then-enrich pipeline lives in intake.js, shared with the flat
+ * POST /reportBin alias so the two cannot drift.
  */
 app.post("/api/v1/reports", upload.single("photo"), async (req, res) => {
   const body = req.body || {};
@@ -75,83 +65,16 @@ app.post("/api/v1/reports", upload.single("photo"), async (req, res) => {
     });
   }
 
-  const autoAssign = body.auto_assign === undefined ? true : String(body.auto_assign) !== "false";
-
-  const report = {
-    id: id("bin"),
-    location: { lat: Number(lat), lng: Number(lng) },
+  const { report, degraded } = await createReport({
+    location: { lat, lng },
     address: body.address || null,
     notes: body.notes || null,
-    reporter_name: body.reporter_name || "Anonymous",
-    photo_url: req.file ? `/uploads/${req.file.filename}` : null,
-    waste_type: null,
-    classification: null,
-    status: "reported",
-    assignment: null,
-    reported_at: new Date().toISOString(),
-    cleared_at: null,
-  };
-
-  // --- persist before enriching -------------------------------------------
-  const data = store.read();
-  data.reports.push(report);
-  store.write(data);
-
-  const degraded = {};
-
-  // --- enrich: classify ----------------------------------------------------
-  if (req.file) {
-    const result = await classify(fs.readFileSync(req.file.path), report.id);
-    if (result.ok) {
-      report.classification = result.data.prediction;
-      report.waste_type = result.data.prediction.type;
-    } else {
-      degraded.classification = result.reason;
-    }
-  } else {
-    degraded.classification = "no_photo_supplied";
-  }
-
-  // --- enrich: dispatch ----------------------------------------------------
-  if (autoAssign) {
-    const result = await requestAssignment({
-      binId: report.id,
-      location: report.location,
-      wasteType: report.waste_type,
-    });
-    if (result.ok) {
-      report.assignment = {
-        assignment_id: result.data.id,
-        worker_id: result.data.worker_id,
-        worker_name: result.data.worker_name,
-        distance_km: result.data.distance_km,
-      };
-      report.status = "assigned";
-    } else {
-      // 503 = genuinely no worker free; distinct from an outage.
-      degraded.assignment =
-        result.reason === "upstream_503" ? "no_workers_available" : result.reason;
-    }
-  }
-
-  // --- persist enrichment --------------------------------------------------
-  const after = store.read();
-  const idx = after.reports.findIndex((r) => r.id === report.id);
-  if (idx !== -1) after.reports[idx] = report;
-  store.write(after);
-
-  // --- fire-and-forget analytics ------------------------------------------
-  await Promise.all([
-    emit("bin.reported", report.id, { has_photo: Boolean(req.file) }),
-    report.waste_type
-      ? emit("bin.classified", report.id, { waste_type: report.waste_type })
-      : Promise.resolve(),
-  ]);
-
-  res.status(201).json({
-    report,
-    degraded: Object.keys(degraded).length ? degraded : null,
+    reporterName: body.reporter_name || "Anonymous",
+    photoFilename: req.file ? req.file.filename : null,
+    autoAssign: body.auto_assign === undefined ? true : String(body.auto_assign) !== "false",
   });
+
+  res.status(201).json({ report, degraded });
 });
 
 app.get("/api/v1/reports", (req, res) => {
@@ -177,29 +100,22 @@ app.get("/api/v1/reports/:id", (req, res) => {
  * classification safe rather than lossy.
  */
 app.post("/api/v1/reports/:id/reclassify", async (req, res) => {
-  const data = store.read();
-  const report = data.reports.find((r) => r.id === req.params.id);
-  if (!report) return res.status(404).json({ error: "Report not found" });
-  if (!report.photo_url) {
-    return res.status(422).json({ error: "Report has no photo to classify" });
+  const result = await reclassifyReport(req.params.id);
+
+  if (result.ok) return res.json(result.report);
+
+  switch (result.code) {
+    case "not_found":
+      return res.status(404).json({ error: "Report not found" });
+    case "no_photo":
+      return res.status(422).json({ error: "Report has no photo to classify" });
+    case "photo_gone":
+      return res.status(410).json({ error: "Stored photo is no longer available" });
+    default:
+      return res
+        .status(503)
+        .json({ error: "Classifier unavailable", reason: result.reason });
   }
-
-  const filePath = path.join(UPLOAD_DIR, path.basename(report.photo_url));
-  if (!fs.existsSync(filePath)) {
-    return res.status(410).json({ error: "Stored photo is no longer available" });
-  }
-
-  const result = await classify(fs.readFileSync(filePath), report.id);
-  if (!result.ok) {
-    return res.status(503).json({ error: "Classifier unavailable", reason: result.reason });
-  }
-
-  report.classification = result.data.prediction;
-  report.waste_type = result.data.prediction.type;
-  store.write(data);
-
-  await emit("bin.classified", report.id, { waste_type: report.waste_type });
-  res.json(report);
 });
 
 /**
@@ -231,6 +147,10 @@ app.patch("/api/v1/reports/:id/status", async (req, res) => {
 
   res.json(report);
 });
+
+// Flat verb-style alias endpoints (POST /reportBin, POST /detectWasteType).
+// Mounted at the root, alongside — never replacing — the canonical routes above.
+app.use(compatRouter);
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {

@@ -75,6 +75,30 @@ when you want to run your own solver and just need the geography.
 
 ### `GET /api/v1/health`
 
+## Flat alias endpoint
+
+### `GET /optimizeRoute?bins=[...]`
+
+Additive alias over `POST /api/v1/optimize` — same underlying function.
+
+```bash
+curl -G http://localhost:4103/optimizeRoute \
+  --data-urlencode 'bins=[{"lat":12.9784,"lng":77.6408},{"lat":12.9611,"lng":77.6387}]'
+```
+
+`bins` is a URL-encoded JSON array. Each entry may be `{lat,lng}`,
+`{id?, location:{lat,lng}}`, or the compact `"lat,long"` string. `start` is
+optional (`"lat,long"` or JSON) and defaults to the city centre, with
+`start_defaulted: true` in the response so you can tell. Adds an `order` array
+of stop ids on top of the canonical response body.
+
+**`bins` must carry coordinates, not bin ids.** This module is stateless and
+dependency-free — that is its main selling point — so it cannot resolve
+`"bin_1fab6e"` to a location. Bare ids return `400` with a hint pointing at
+the two ways to get coordinates: fetch them from `bin_reporting`
+(`GET /api/v1/reports/:id`), or use `worker_dashboard`'s
+`GET /v1/workers/:id/queue`, which resolves and sequences in one call.
+
 ## Algorithm
 
 Greedy nearest-neighbor to build an initial tour, then **2-opt** refinement:

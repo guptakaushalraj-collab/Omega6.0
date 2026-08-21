@@ -3,6 +3,7 @@ import "./env.js";
 import express from "express";
 import cors from "cors";
 import { optimizeRoute, distanceMatrix, haversineKm } from "./optimize.js";
+import { compatRouter } from "./compat.js";
 
 const app = express();
 const PORT = process.env.PORT || 4103;
@@ -88,6 +89,9 @@ app.post("/api/v1/distance", (req, res) => {
     distance_km: Number(haversineKm(normalize(from), normalize(to)).toFixed(3)),
   });
 });
+
+// Flat verb-style alias (GET /optimizeRoute), alongside the canonical routes.
+app.use(compatRouter);
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, _req, res, _next) => {

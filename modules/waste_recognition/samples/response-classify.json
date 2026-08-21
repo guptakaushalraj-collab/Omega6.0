@@ -1,5 +1,5 @@
 {
-  "id": "cls_7753b5db622f",
+  "id": "cls_0eca6b0a7223",
   "reference": "bin_1fab6e6fa493",
   "prediction": {
     "type": "mixed",
@@ -23,5 +23,5 @@
     "model_version": "stub-cv-1.0.0"
   },
   "image_bytes": 68,
-  "classified_at": "2026-08-21T14:04:42.675Z"
+  "classified_at": "2026-08-21T20:58:38.016Z"
 }

@@ -1,0 +1,54 @@
+{
+  "start": {
+    "lat": 12.9716,
+    "lng": 77.5946
+  },
+  "start_defaulted": true,
+  "order": [
+    "bin_c",
+    "bin_a",
+    "bin_b"
+  ],
+  "stops": [
+    {
+      "id": "bin_c",
+      "lat": 12.9899,
+      "lng": 77.5731,
+      "location": {
+        "lat": 12.9899,
+        "lng": 77.5731
+      },
+      "sequence": 1,
+      "leg_distance_km": 3.09,
+      "cumulative_distance_km": 3.09
+    },
+    {
+      "id": "bin_a",
+      "lat": 12.9784,
+      "lng": 77.6408,
+      "location": {
+        "lat": 12.9784,
+        "lng": 77.6408
+      },
+      "sequence": 2,
+      "leg_distance_km": 7.45,
+      "cumulative_distance_km": 10.54
+    },
+    {
+      "id": "bin_b",
+      "lat": 12.9611,
+      "lng": 77.6387,
+      "location": {
+        "lat": 12.9611,
+        "lng": 77.6387
+      },
+      "sequence": 3,
+      "leg_distance_km": 1.94,
+      "cumulative_distance_km": 12.48
+    }
+  ],
+  "total_distance_km": 12.48,
+  "strategy": "nearest-neighbor + 2-opt",
+  "two_opt_passes": 1,
+  "improvement_km": 0
+}

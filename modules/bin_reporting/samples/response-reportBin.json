@@ -1,14 +1,20 @@
 {
+  "binId": "bin_0a33798456ab",
+  "status": "assigned",
+  "type": "mixed",
+  "location": "12.972,77.595",
+  "assignedWorker": "Ravi Singh",
+  "degraded": null,
   "report": {
-    "id": "bin_369c4c8b8e93",
+    "id": "bin_0a33798456ab",
     "location": {
       "lat": 12.972,
       "lng": 77.595
     },
     "address": "MG Road bus stop",
     "notes": null,
-    "reporter_name": "Asha",
-    "photo_url": "/uploads/1787345918044-a096c353.png",
+    "reporter_name": "Anonymous",
+    "photo_url": "/uploads/1787345918091-3acb629c.jpg",
     "waste_type": "mixed",
     "classification": {
       "type": "mixed",
@@ -33,13 +39,12 @@
     },
     "status": "assigned",
     "assignment": {
-      "assignment_id": "asg_dcddb4bb9d03",
+      "assignment_id": "asg_cbf499e71887",
       "worker_id": "wrk_f19eb1011d3f",
       "worker_name": "Ravi Singh",
       "distance_km": 0.43
     },
-    "reported_at": "2026-08-21T20:58:38.045Z",
+    "reported_at": "2026-08-21T20:58:38.091Z",
     "cleared_at": null
-  },
-  "degraded": null
+  }
 }

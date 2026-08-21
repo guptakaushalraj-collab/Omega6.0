@@ -100,6 +100,69 @@ npm run modules:start         # :4101-:4106, dependencies pre-wired
 npm run modules:test          # 34-check integration suite
 ```
 
+## Flat alias API
+
+Alongside the canonical REST routes, five flat verb-style endpoints are
+available. They are **additive aliases, not replacements** — each calls the
+same underlying function as its canonical counterpart, so the two surfaces
+cannot drift apart.
+
+| Endpoint | Module | Port | Canonical equivalent |
+|---|---|---|---|
+| `POST /reportBin` | `bin_reporting` | 4101 | `POST /api/v1/reports` |
+| `POST /detectWasteType` | `bin_reporting` | 4101 | `POST /api/v1/reports/:id/reclassify` |
+| `GET /optimizeRoute?bins=[...]` | `route_optimizer` | 4103 | `POST /api/v1/optimize` |
+| `GET /analytics` | `analytics_dashboard` | 4104 | `GET /api/v1/summary` + `/trends` |
+| `POST /notifyPickup` | `notification_system` | 4105 | `POST /v1/messages` |
+
+```bash
+curl -X POST http://localhost:4101/reportBin -H 'Content-Type: application/json' \
+  -d '{"image":"<base64>","location":"12.972,77.595"}'
+# -> { "binId": "bin_...", "type": "plastic", "status": "assigned", ... }
+
+curl -X POST http://localhost:4101/detectWasteType -H 'Content-Type: application/json' \
+  -d '{"binId":"bin_..."}'                         # -> { "type": "plastic", ... }
+
+curl -G http://localhost:4103/optimizeRoute \
+  --data-urlencode 'bins=[{"lat":12.97,"lng":77.64},{"lat":12.96,"lng":77.63}]'
+
+curl http://localhost:4104/analytics                # -> chart-ready series
+
+curl -X POST http://localhost:4105/notifyPickup -H 'X-API-Key: dev-signalpost-key' \
+  -H 'Content-Type: application/json' -d '{"binId":"bin_..."}'
+```
+
+Three placement decisions are worth knowing, because each was forced by the
+architecture rather than chosen for convenience:
+
+**`/detectWasteType` lives on `bin_reporting`, not `waste_recognition`.** It
+is keyed by `binId`, and `waste_recognition` is a stateless leaf that never
+sees bin records — only raw image bytes. Giving it binId lookup would force it
+to call `bin_reporting`, creating a cycle
+(`bin_reporting → waste_recognition → bin_reporting`) and destroying the
+dependency-free property that makes it the registry's most sellable module.
+`bin_reporting` owns bin records and already calls the classifier, so
+resolving `binId → photo → type` belongs there.
+
+**`/optimizeRoute` needs coordinates, not bin ids.** The same statelessness
+means it cannot turn `"bin_1fab6e"` into a location. Passing bare ids returns
+`400` with a hint naming the two ways to get coordinates — fetch them from
+`bin_reporting`, or use `worker_dashboard`'s `GET /v1/workers/:id/queue`,
+which resolves and sequences in one call. `bins` accepts `{lat,lng}`,
+`{location:{...}}`, or the compact `"lat,long"` string.
+
+**`/notifyPickup` is still authenticated.** It sits at the root path, outside
+the `/v1` prefix its API-key gate covers, so the same check is applied to it
+explicitly. An unauthenticated notification endpoint is a spam vector, and an
+alias must never become a way around auth — there is a test asserting it
+returns `401` without a key.
+
+Everything else about the aliases is convenience: `"lat,long"` string parsing,
+base64 image intake (a `data:` URL prefix is tolerated), `binId` promoted to
+the top level of the `/reportBin` response since that is what a caller needs
+next, chart-ready parallel `labels`/`values` arrays from `/analytics`, and a
+composed default message from `/notifyPickup`.
+
 ## Configuration
 
 Every module carries a `.env.example` documenting exactly the variables it

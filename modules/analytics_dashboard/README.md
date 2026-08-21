@@ -91,6 +91,35 @@ bin's lifecycle: `?subject_id=bin_1fab6e6f`.
 
 ### `GET /api/v1/health`
 
+## Flat alias endpoint
+
+### `GET /analytics?days=7`
+
+Additive alias over `/api/v1/summary` + `/api/v1/trends`, reshaped into
+chart-ready series.
+
+```json
+{
+  "kpis": { "reported": 36, "collected": 17, "outstanding": 19,
+            "collection_rate": 0.472, "avg_resolution_minutes": 93.8 },
+  "charts": {
+    "daily_activity":     { "type": "line", "labels": ["2026-08-15", "..."],
+                            "datasets": [{ "label": "Reported", "values": [3, 4], "color": "#2563eb" }] },
+    "waste_mix":          { "type": "pie", "labels": ["organic"], "values": [11], "colors": ["#16a34a"] },
+    "worker_leaderboard": { "type": "bar", "...": "..." },
+    "status_breakdown":   { "type": "bar", "...": "..." }
+  },
+  "summary": { "...": "the unreshaped canonical metrics" }
+}
+```
+
+The canonical endpoints return arrays of objects; this returns parallel
+`labels`/`values`/`colors` arrays that a charting library consumes directly.
+That saves every frontend writing the same `.map()` boilerplate and keeps
+chart colours consistent across clients by deciding them server-side. The full
+`summary` is included so a caller needing detail does not have to make a
+second request.
+
 ## Retention
 
 The log retains the most recent `MAX_EVENTS` (default 20,000) and evicts

@@ -11,7 +11,7 @@
   },
   "trade": {
     "status": "available",
-    "notes": "The network's entry point and orchestrator. Carries three outbound dependencies — all optional and degrading — so it remains operable standalone as a pure intake log.",
+    "notes": "The network's entry point and orchestrator. Carries three outbound dependencies \u2014 all optional and degrading \u2014 so it remains operable standalone as a pure intake log.",
     "pricing": {
       "model": "subscription",
       "currency": "USD",
@@ -63,11 +63,49 @@
     "accepted_mime": "image/*"
   },
   "endpoints": [
-    { "method": "POST", "path": "/api/v1/reports", "summary": "Report an overflowing bin" },
-    { "method": "GET", "path": "/api/v1/reports", "summary": "List reports" },
-    { "method": "GET", "path": "/api/v1/reports/:id", "summary": "Fetch one report" },
-    { "method": "POST", "path": "/api/v1/reports/:id/reclassify", "summary": "Backfill a skipped classification" },
-    { "method": "PATCH", "path": "/api/v1/reports/:id/status", "summary": "Update lifecycle status" },
-    { "method": "GET", "path": "/api/v1/health", "summary": "Liveness probe and dependency config" }
+    {
+      "method": "POST",
+      "path": "/api/v1/reports",
+      "summary": "Report an overflowing bin"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/reports",
+      "summary": "List reports"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/reports/:id",
+      "summary": "Fetch one report"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/reports/:id/reclassify",
+      "summary": "Backfill a skipped classification"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/v1/reports/:id/status",
+      "summary": "Update lifecycle status"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/health",
+      "summary": "Liveness probe and dependency config"
+    }
+  ],
+  "alias_endpoints": [
+    {
+      "method": "POST",
+      "path": "/reportBin",
+      "summary": "Flat alias for POST /api/v1/reports (location as \"lat,long\", image as base64)",
+      "alias_of": "/api/v1/reports"
+    },
+    {
+      "method": "POST",
+      "path": "/detectWasteType",
+      "summary": "Flat alias: binId -> waste type. Lives here, not in waste_recognition, because that module is a stateless leaf with no bin records.",
+      "alias_of": "/api/v1/reports/:id/reclassify"
+    }
   ]
 }

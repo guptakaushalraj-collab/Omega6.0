@@ -11,7 +11,7 @@
   },
   "trade": {
     "status": "available",
-    "notes": "Pure computation — no datastore, no outbound calls, no persistent state. Horizontally scalable behind any load balancer.",
+    "notes": "Pure computation \u2014 no datastore, no outbound calls, no persistent state. Horizontally scalable behind any load balancer.",
     "pricing": {
       "model": "per-request",
       "currency": "USD",
@@ -41,9 +41,33 @@
     "max_points_per_matrix": 200
   },
   "endpoints": [
-    { "method": "POST", "path": "/api/v1/optimize", "summary": "Sequence stops into a short route" },
-    { "method": "POST", "path": "/api/v1/distance-matrix", "summary": "All-pairs distance matrix" },
-    { "method": "POST", "path": "/api/v1/distance", "summary": "Distance between two points" },
-    { "method": "GET", "path": "/api/v1/health", "summary": "Liveness probe" }
+    {
+      "method": "POST",
+      "path": "/api/v1/optimize",
+      "summary": "Sequence stops into a short route"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/distance-matrix",
+      "summary": "All-pairs distance matrix"
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/distance",
+      "summary": "Distance between two points"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/health",
+      "summary": "Liveness probe"
+    }
+  ],
+  "alias_endpoints": [
+    {
+      "method": "GET",
+      "path": "/optimizeRoute",
+      "summary": "Flat alias for POST /api/v1/optimize. bins=[...] must carry coordinates; a stateless optimizer cannot resolve bin ids.",
+      "alias_of": "/api/v1/optimize"
+    }
   ]
 }
