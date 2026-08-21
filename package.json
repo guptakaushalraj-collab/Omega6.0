@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Intelligent Waste Collection Network — integrated app plus six independently tradable modules",
+  "description": "Intelligent Waste Collection Network \u2014 integrated app plus six independently tradable modules",
   "engines": {
     "node": ">=20.12"
   },
@@ -14,6 +14,7 @@
     "mocks:generate": "node scripts/generate-mocks.js",
     "mocks:seed": "node scripts/seed-mocks.js",
     "mocks:reset": "node scripts/seed-mocks.js --reset",
-    "samples:capture": "node scripts/capture-samples.js"
+    "samples:capture": "node scripts/capture-samples.js",
+    "workflow": "node scripts/workflow.js"
   }
 }

@@ -59,8 +59,15 @@ registry, its manifest schema, and the rules that keep the six separable.
 ```bash
 npm run install:modules   # install all six
 npm run modules:start     # run the mesh on :4101-:4106
-npm run modules:test      # 34-check integration suite
+npm run modules:test      # 47-check integration suite
+npm run mocks:seed        # load the 7-day mock dataset
+npm run workflow          # traced end-to-end collection pipeline
 ```
+
+The workflow runs the full sequence one visible step at a time —
+`reportBin → detectWasteType → assignWorker → optimizeRoute → notifyPickup →
+updateAnalytics` — printing each call, result and timing. See
+[`modules/README.md`](./modules/README.md#end-to-end-workflow).
 
 ## Getting started
 
@@ -112,7 +119,10 @@ modules/                   Six independently tradable services — see modules/R
   worker_dashboard/        :4106  acquired (FieldOps Crew)
 scripts/
   modules.js               Install / run the whole module mesh
-  integration-test.js      34-check composition + degradation suite
+  workflow.js              Traced end-to-end collection pipeline
+  integration-test.js      47-check composition + degradation suite
+  generate-mocks.js        Build the coherent 7-day mock dataset
+  seed-mocks.js            Load mocks into every module's store
   capture-samples.js       Regenerate every samples/ dir from live responses
 ```
 

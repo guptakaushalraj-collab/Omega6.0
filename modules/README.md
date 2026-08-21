@@ -100,6 +100,72 @@ npm run modules:start         # :4101-:4106, dependencies pre-wired
 npm run modules:test          # 34-check integration suite
 ```
 
+## End-to-end workflow
+
+`scripts/workflow.js` is a runnable, traced implementation of the collection
+pipeline:
+
+```
+bin   = reportBin()
+type  = detectWasteType(bin)
+task  = assignWorker(bin, type)
+route = optimizeRoute(task)
+        notifyPickup(route)
+        updateAnalytics(bin, type, route)
+```
+
+```bash
+npm run modules:start        # in another shell
+npm run workflow             # traced, human-readable
+npm run workflow -- --json   # machine-readable, CI-usable
+```
+
+Each step prints the call it makes, its result, and its timing:
+
+```
+1. bin = reportBin()
+   POST http://localhost:4101/reportBin
+   → binId=bin_77b7296d2d84 status=reported (113ms)
+...
+4. route = optimizeRoute(task)
+   GET http://localhost:4106/v1/workers/wrk_bd09.../queue  → route_optimizer
+   → 2 stop(s), 6.01km via nearest-neighbor + 2-opt (28ms)
+     1. bin_77b7296d2d84  1.19km
+     2. bin_66b139d5027e  4.81km
+
+✓ workflow complete in 241ms
+```
+
+**In normal operation these stages are fused.** `POST /reportBin` internally
+classifies, dispatches, notifies and emits analytics in a single call — the
+right behaviour for a citizen tapping "submit", but it hides the machinery.
+This script pulls the stages apart so the pipeline can be read and demoed one
+stage at a time.
+
+Three details worth knowing:
+
+**Step 1 passes `auto_assign: false`.** Without it, `reportBin()` would have
+already dispatched a worker and step 3 would fail with `409 duplicate_job` —
+`worker_dashboard` refuses a second open assignment for the same bin.
+Suppressing the fused dispatch is what lets `assignWorker()` genuinely own
+that step.
+
+**Step 4 sequences the worker's whole queue, not just the new stop.**
+Optimizing a one-stop route is meaningless; the operationally useful question
+is "given this new job, what order should this worker drive?". It goes through
+`worker_dashboard`'s queue endpoint, which resolves `job_ref`s to coordinates
+and calls `route_optimizer` in one hop — the optimizer is stateless and cannot
+resolve bin ids itself.
+
+**Preflight distinguishes required from optional modules.** `bin_reporting`,
+`worker_dashboard`, `notification_system` and `analytics_dashboard` are
+load-bearing and their absence aborts with a clear message. `waste_recognition`
+and `route_optimizer` are declared optional by the architecture, so the
+workflow warns and proceeds — refusing to run without them would contradict
+the degradation guarantee the whole system is built on. With
+`route_optimizer` stopped, step 4 reports `UNORDERED` with a reason, step 5
+drops its "stop N of M" phrasing, and the run still completes.
+
 ## Flat alias API
 
 Alongside the canonical REST routes, five flat verb-style endpoints are
