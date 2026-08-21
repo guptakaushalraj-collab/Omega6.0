@@ -87,6 +87,7 @@ Each module runs on its own:
 
 ```bash
 cd modules/waste_recognition
+cp .env.example .env          # optional — defaults work as-is
 npm install
 npm start                     # :4102, fully functional alone
 ```
@@ -94,10 +95,79 @@ npm start                     # :4102, fully functional alone
 Or run the whole mesh:
 
 ```bash
-npm install          # from repo root — installs all six
-npm run modules:start
-npm run modules:test          # end-to-end integration check
+npm run install:modules       # from repo root — installs all six
+npm run modules:start         # :4101-:4106, dependencies pre-wired
+npm run modules:test          # 34-check integration suite
 ```
+
+## Configuration
+
+Every module carries a `.env.example` documenting exactly the variables it
+reads — nothing aspirational. Copy it to `.env` and edit; each module loads
+its own file via Node's built-in `process.loadEnvFile` (no dependency added).
+
+**Real environment variables take precedence over `.env`**, so container and
+CI configuration always wins over a stray local file. Every variable has a
+working default, so `.env` is optional for local development.
+
+Two secrets are shared between a service and its callers and must match on
+both sides:
+
+| Secret | Owned by | Read by |
+|---|---|---|
+| `NOTIFY_API_KEY` | `notification_system` | `worker_dashboard` |
+| `CREW_AUTH_TOKEN` | `worker_dashboard` | `bin_reporting` |
+
+> The committed defaults (`dev-signalpost-key`, `dev-fieldops-token`) are
+> **public knowledge** — they are the fallbacks baked into the source. Change
+> both before running anywhere you do not fully control.
+
+Real `.env` files are gitignored at every depth; `.env.example` files are
+tracked.
+
+## Mock datasets
+
+A coherent seven-day dataset spanning all six modules — 8 workers, 34 bin
+reports across 12 Bengaluru neighbourhoods, and the matching assignments,
+notifications, classifications and events.
+
+```bash
+npm run mocks:seed        # load fixtures into every module's store
+npm run mocks:reset       # empty every store
+npm run mocks:generate    # regenerate the fixtures themselves
+```
+
+Modules re-read their store per request, so seeding takes effect immediately
+with no restart.
+
+**Referential integrity is the point.** A bin id minted by the generator
+appears as `bin_reporting`'s report id, `worker_dashboard`'s assignment
+`job_ref`, `notification_system`'s `subject_ref`, `waste_recognition`'s
+`reference`, and `analytics_dashboard`'s event `subject_id`. Six
+hand-written fixture files would drift apart within a week and make
+cross-module testing worthless, so `scripts/generate-mocks.js` derives all of
+them from one pass.
+
+Generation is deterministic (fixed PRNG seed), so regenerating produces
+byte-identical files and fixtures diff cleanly.
+
+The lifecycle mix deliberately exercises every path a consumer hits: ~50%
+cleared (drives resolution-time metrics), plus in-progress, assigned, and
+still-reported bins (the backlog case). Seeding rebases every timestamp onto
+the current date — fixtures are generated against a fixed anchor for stable
+diffs, and without rebasing the seven-day trend window would render empty.
+
+`route_optimizer` holds no state, so instead of records its
+`mocks/scenarios.json` carries five solvable routing scenarios — including
+`crossing_path`, built so greedy nearest-neighbor self-crosses and 2-opt
+reports a non-zero `improvement_km`, and `empty`, which must return an empty
+route rather than an error.
+
+Seeding writes to the store files directly rather than through the REST APIs,
+because the APIs correctly stamp timestamps as *now* and would collapse the
+week-long dataset onto today. It is therefore a fixture loader, not a
+demonstration that the APIs work — `npm run modules:test` is what exercises
+those.
 
 ## Manifest schema
 

@@ -4,6 +4,8 @@
  * Retains FieldOps conventions (/v1 base path, Bearer token auth, snake_case
  * fields). Not normalized to house style — see README for why.
  */
+// Load this module's .env before anything reads process.env.
+import "./env.js";
 import express from "express";
 import cors from "cors";
 import crypto from "node:crypto";

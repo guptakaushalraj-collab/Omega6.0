@@ -1,3 +1,5 @@
+// Load this module's .env before anything reads process.env.
+import "./env.js";
 import express from "express";
 import cors from "cors";
 import crypto from "node:crypto";

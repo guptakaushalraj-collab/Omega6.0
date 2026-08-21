@@ -100,6 +100,28 @@ reflects the retention window, not all time. For durable history, raise
 `MAX_EVENTS`, or mirror the event stream into a warehouse and treat this
 module as the live operational view.
 
+## Configuration
+
+Copy `.env.example` to `.env` and edit; the module loads it via Node's
+built-in `process.loadEnvFile` (no dependency added). Real environment
+variables take precedence over `.env`.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PORT` | `4104` | Port to listen on |
+| `MAX_EVENTS` | `20000` | Events retained before oldest-first eviction |
+
+No outbound dependencies — this module is push-based.
+
+## Mock data
+
+`mocks/events.json` holds 172 events spanning seven days, enough for
+`/summary` and `/trends` to return meaningful figures rather than zeroes.
+Load with `npm run mocks:seed` from the repo root.
+
+Seeding rebases timestamps onto the current date — without that the seven-day
+trend window would render empty.
+
 ## Notes for a buyer
 
 The event contract is the entire integration surface — six event types, three

@@ -139,6 +139,39 @@ Bearer auth, `snake_case`, and its domain-neutral vocabulary (our bin id
 becomes its `job_ref`). That translation lives here, at the call site, so the
 purchased module stays unmodified and therefore resaleable.
 
+## Configuration
+
+Copy `.env.example` to `.env` and edit; the module loads it via Node's
+built-in `process.loadEnvFile` (no dependency added). Real environment
+variables take precedence over `.env`, so container and CI config always wins.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PORT` | `4101` | Port to listen on |
+| `WASTE_RECOGNITION_URL` | — | Optional. `waste.classify` provider |
+| `WORKER_DASHBOARD_URL` | — | Optional. `workforce.dispatch` provider |
+| `CREW_AUTH_TOKEN` | `dev-fieldops-token` | Bearer token for `WORKER_DASHBOARD_URL` |
+| `ANALYTICS_URL` | — | Optional. `analytics.ingest` provider |
+| `DEPENDENCY_TIMEOUT_MS` | `2500` | Hard timeout per outbound call |
+
+All three dependency URLs are **optional** — see the degradation table above.
+Unset them all and this module is a self-contained intake log.
+
+`DEPENDENCY_TIMEOUT_MS` bounds *intake* latency, which a citizen is actively
+waiting on. Keep it tight rather than generous.
+
+## Mock data
+
+`mocks/reports.json` holds 34 reports across 12 Bengaluru neighbourhoods and
+seven days, with a lifecycle mix (~50% cleared, plus in-progress, assigned and
+still-reported) that exercises every consumer path including the backlog case.
+Load with `npm run mocks:seed` from the repo root.
+
+Note the fixtures reference `photo_url` paths under `uploads/` that are not
+themselves committed — `POST /reclassify` on a seeded report will return
+`410` because the image file is absent. Report a fresh bin with a real photo
+to exercise that path.
+
 ## Notes for a buyer
 
 Intake is unauthenticated by design — it is a public civic reporting surface.

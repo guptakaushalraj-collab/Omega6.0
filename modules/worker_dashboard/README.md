@@ -154,6 +154,34 @@ module: it translates this module's vocabulary into SignalPost's
 (`X-API-Key`, `recipient_type`/`body`/`subject_ref`). That translation belongs
 at the call site, not inside either purchased module.
 
+## Configuration
+
+Copy `.env.example` to `.env` and edit; the module loads it via Node's
+built-in `process.loadEnvFile` (no dependency added). Real environment
+variables take precedence over `.env`, so container and CI config always wins.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PORT` | `4106` | Port to listen on |
+| `CREW_AUTH_TOKEN` | `dev-fieldops-token` | Bearer token callers must present |
+| `ROUTE_OPTIMIZER_URL` | — | Optional. `route.optimize` provider |
+| `NOTIFICATION_URL` | — | Optional. `notify.send` provider |
+| `NOTIFY_API_KEY` | `dev-signalpost-key` | API key for `NOTIFICATION_URL` |
+| `ANALYTICS_URL` | — | Optional. `analytics.ingest` provider |
+| `DEPENDENCY_TIMEOUT_MS` | `2500` | Hard timeout per outbound call |
+
+> `CREW_AUTH_TOKEN`'s default is **public knowledge** — it is the fallback
+> baked into `src/server.js`. Change it before exposing this service, and
+> update every caller (`bin_reporting` reads the same variable name).
+
+## Mock data
+
+`mocks/workers.json` (8 workers) and `mocks/assignments.json` (26
+assignments) reference bin ids from the shared dataset via `job_ref`. The mix
+spans completed, in-progress and assigned so queue and leaderboard endpoints
+return something meaningful. Load with `npm run mocks:seed` from the repo
+root.
+
 ## Notes for a buyer
 
 The highest-value module in the registry — the only one with an escrowed

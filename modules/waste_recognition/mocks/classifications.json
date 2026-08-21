@@ -1,0 +1,482 @@
+[
+  {
+    "id": "cls_3e12b86b0b61",
+    "reference": "bin_21f38919f283",
+    "prediction": {
+      "type": "organic",
+      "label": "Organic",
+      "color": "#16a34a",
+      "recyclable": false,
+      "hazardous": false,
+      "confidence": 0.92,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 202740,
+    "classified_at": "2026-08-15T06:32:01.200Z"
+  },
+  {
+    "id": "cls_990f869b5448",
+    "reference": "bin_6d2da09dee43",
+    "prediction": {
+      "type": "glass",
+      "label": "Glass",
+      "color": "#0d9488",
+      "recyclable": true,
+      "hazardous": false,
+      "confidence": 0.84,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 198230,
+    "classified_at": "2026-08-15T17:44:01.200Z"
+  },
+  {
+    "id": "cls_f4fc3bce5066",
+    "reference": "bin_11ef5aef3366",
+    "prediction": {
+      "type": "paper",
+      "label": "Paper",
+      "color": "#ca8a04",
+      "recyclable": true,
+      "hazardous": false,
+      "confidence": 0.95,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 106345,
+    "classified_at": "2026-08-15T18:30:01.200Z"
+  },
+  {
+    "id": "cls_ec12f7b26a33",
+    "reference": "bin_6253033f77bc",
+    "prediction": {
+      "type": "mixed",
+      "label": "Mixed",
+      "color": "#78716c",
+      "recyclable": false,
+      "hazardous": false,
+      "confidence": 0.81,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 43419,
+    "classified_at": "2026-08-16T19:53:01.200Z"
+  },
+  {
+    "id": "cls_c894d0a03fae",
+    "reference": "bin_ac6d443fad7c",
+    "prediction": {
+      "type": "paper",
+      "label": "Paper",
+      "color": "#ca8a04",
+      "recyclable": true,
+      "hazardous": false,
+      "confidence": 0.74,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 62588,
+    "classified_at": "2026-08-16T06:01:01.200Z"
+  },
+  {
+    "id": "cls_fd42420728f8",
+    "reference": "bin_27ef82d34185",
+    "prediction": {
+      "type": "organic",
+      "label": "Organic",
+      "color": "#16a34a",
+      "recyclable": false,
+      "hazardous": false,
+      "confidence": 0.81,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 77220,
+    "classified_at": "2026-08-16T18:55:01.200Z"
+  },
+  {
+    "id": "cls_59f123afb3ca",
+    "reference": "bin_03f6a5c3212c",
+    "prediction": {
+      "type": "organic",
+      "label": "Organic",
+      "color": "#16a34a",
+      "recyclable": false,
+      "hazardous": false,
+      "confidence": 0.9,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 55630,
+    "classified_at": "2026-08-17T18:39:01.200Z"
+  },
+  {
+    "id": "cls_208c89051fa5",
+    "reference": "bin_014114f4cd0b",
+    "prediction": {
+      "type": "plastic",
+      "label": "Plastic",
+      "color": "#2563eb",
+      "recyclable": true,
+      "hazardous": false,
+      "confidence": 0.75,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 212117,
+    "classified_at": "2026-08-17T14:12:01.200Z"
+  },
+  {
+    "id": "cls_74b55ffd7f40",
+    "reference": "bin_3c308c623d7e",
+    "prediction": {
+      "type": "glass",
+      "label": "Glass",
+      "color": "#0d9488",
+      "recyclable": true,
+      "hazardous": false,
+      "confidence": 0.72,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 128102,
+    "classified_at": "2026-08-17T06:51:01.200Z"
+  },
+  {
+    "id": "cls_ea69595752a4",
+    "reference": "bin_2bc1c24bdde2",
+    "prediction": {
+      "type": "organic",
+      "label": "Organic",
+      "color": "#16a34a",
+      "recyclable": false,
+      "hazardous": false,
+      "confidence": 0.8,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 119720,
+    "classified_at": "2026-08-17T12:57:01.200Z"
+  },
+  {
+    "id": "cls_c7314f167105",
+    "reference": "bin_e27e0aef69ab",
+    "prediction": {
+      "type": "glass",
+      "label": "Glass",
+      "color": "#0d9488",
+      "recyclable": true,
+      "hazardous": false,
+      "confidence": 0.78,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 132923,
+    "classified_at": "2026-08-18T18:08:01.200Z"
+  },
+  {
+    "id": "cls_36dd4b45cf5f",
+    "reference": "bin_7a4aab7d316b",
+    "prediction": {
+      "type": "organic",
+      "label": "Organic",
+      "color": "#16a34a",
+      "recyclable": false,
+      "hazardous": false,
+      "confidence": 0.78,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 116030,
+    "classified_at": "2026-08-18T11:01:01.200Z"
+  },
+  {
+    "id": "cls_34977bed0eab",
+    "reference": "bin_4fc6852d1631",
+    "prediction": {
+      "type": "mixed",
+      "label": "Mixed",
+      "color": "#78716c",
+      "recyclable": false,
+      "hazardous": false,
+      "confidence": 0.76,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 130309,
+    "classified_at": "2026-08-18T17:58:01.200Z"
+  },
+  {
+    "id": "cls_0683f321d6ee",
+    "reference": "bin_b383711963d9",
+    "prediction": {
+      "type": "organic",
+      "label": "Organic",
+      "color": "#16a34a",
+      "recyclable": false,
+      "hazardous": false,
+      "confidence": 0.83,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 103537,
+    "classified_at": "2026-08-18T14:55:01.200Z"
+  },
+  {
+    "id": "cls_76ac63a41a69",
+    "reference": "bin_bc8afa7b7347",
+    "prediction": {
+      "type": "organic",
+      "label": "Organic",
+      "color": "#16a34a",
+      "recyclable": false,
+      "hazardous": false,
+      "confidence": 0.85,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 211886,
+    "classified_at": "2026-08-18T19:38:01.200Z"
+  },
+  {
+    "id": "cls_9d4f39f6b28c",
+    "reference": "bin_17938611d2aa",
+    "prediction": {
+      "type": "plastic",
+      "label": "Plastic",
+      "color": "#2563eb",
+      "recyclable": true,
+      "hazardous": false,
+      "confidence": 0.92,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 208926,
+    "classified_at": "2026-08-19T09:14:01.200Z"
+  },
+  {
+    "id": "cls_dbc8b5a36e56",
+    "reference": "bin_9b72c5537abc",
+    "prediction": {
+      "type": "plastic",
+      "label": "Plastic",
+      "color": "#2563eb",
+      "recyclable": true,
+      "hazardous": false,
+      "confidence": 0.77,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 147881,
+    "classified_at": "2026-08-19T14:45:01.200Z"
+  },
+  {
+    "id": "cls_9681758d68ef",
+    "reference": "bin_b0d6bcedcff0",
+    "prediction": {
+      "type": "mixed",
+      "label": "Mixed",
+      "color": "#78716c",
+      "recyclable": false,
+      "hazardous": false,
+      "confidence": 0.84,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 138283,
+    "classified_at": "2026-08-19T10:35:01.200Z"
+  },
+  {
+    "id": "cls_a6204077a73e",
+    "reference": "bin_d664a6258980",
+    "prediction": {
+      "type": "organic",
+      "label": "Organic",
+      "color": "#16a34a",
+      "recyclable": false,
+      "hazardous": false,
+      "confidence": 0.78,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 125551,
+    "classified_at": "2026-08-19T08:52:01.200Z"
+  },
+  {
+    "id": "cls_94c8e5040991",
+    "reference": "bin_b7571fa50d1d",
+    "prediction": {
+      "type": "organic",
+      "label": "Organic",
+      "color": "#16a34a",
+      "recyclable": false,
+      "hazardous": false,
+      "confidence": 0.79,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 219578,
+    "classified_at": "2026-08-20T08:09:01.200Z"
+  },
+  {
+    "id": "cls_7eaa45b1fc1b",
+    "reference": "bin_6f938d21f090",
+    "prediction": {
+      "type": "plastic",
+      "label": "Plastic",
+      "color": "#2563eb",
+      "recyclable": true,
+      "hazardous": false,
+      "confidence": 0.77,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 185749,
+    "classified_at": "2026-08-20T10:10:01.200Z"
+  },
+  {
+    "id": "cls_bf1d94aecac6",
+    "reference": "bin_cceb703f45d7",
+    "prediction": {
+      "type": "organic",
+      "label": "Organic",
+      "color": "#16a34a",
+      "recyclable": false,
+      "hazardous": false,
+      "confidence": 0.73,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 109104,
+    "classified_at": "2026-08-20T17:11:01.200Z"
+  },
+  {
+    "id": "cls_e326da3cc958",
+    "reference": "bin_1386488c9d7d",
+    "prediction": {
+      "type": "mixed",
+      "label": "Mixed",
+      "color": "#78716c",
+      "recyclable": false,
+      "hazardous": false,
+      "confidence": 0.91,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 169902,
+    "classified_at": "2026-08-20T14:37:01.200Z"
+  },
+  {
+    "id": "cls_437be6b310ca",
+    "reference": "bin_968196f3fdf6",
+    "prediction": {
+      "type": "organic",
+      "label": "Organic",
+      "color": "#16a34a",
+      "recyclable": false,
+      "hazardous": false,
+      "confidence": 0.94,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 51903,
+    "classified_at": "2026-08-21T08:02:01.200Z"
+  },
+  {
+    "id": "cls_e88df867c3fc",
+    "reference": "bin_db2558759c00",
+    "prediction": {
+      "type": "plastic",
+      "label": "Plastic",
+      "color": "#2563eb",
+      "recyclable": true,
+      "hazardous": false,
+      "confidence": 0.81,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 90386,
+    "classified_at": "2026-08-21T18:14:01.200Z"
+  },
+  {
+    "id": "cls_82eb3bee02f0",
+    "reference": "bin_97b62c5d595e",
+    "prediction": {
+      "type": "plastic",
+      "label": "Plastic",
+      "color": "#2563eb",
+      "recyclable": true,
+      "hazardous": false,
+      "confidence": 0.79,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 226187,
+    "classified_at": "2026-08-21T09:37:01.200Z"
+  },
+  {
+    "id": "cls_23c9bcd64b95",
+    "reference": "bin_66b139d5027e",
+    "prediction": {
+      "type": "plastic",
+      "label": "Plastic",
+      "color": "#2563eb",
+      "recyclable": true,
+      "hazardous": false,
+      "confidence": 0.82,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 206081,
+    "classified_at": "2026-08-21T14:59:01.200Z"
+  },
+  {
+    "id": "cls_732fd0911ba1",
+    "reference": "bin_68d8d3c4c293",
+    "prediction": {
+      "type": "mixed",
+      "label": "Mixed",
+      "color": "#78716c",
+      "recyclable": false,
+      "hazardous": false,
+      "confidence": 0.7,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 214073,
+    "classified_at": "2026-08-21T17:44:01.200Z"
+  },
+  {
+    "id": "cls_e236a25a7d91",
+    "reference": "bin_21f16e97b636",
+    "prediction": {
+      "type": "paper",
+      "label": "Paper",
+      "color": "#ca8a04",
+      "recyclable": true,
+      "hazardous": false,
+      "confidence": 0.79,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 189073,
+    "classified_at": "2026-08-21T12:02:01.200Z"
+  },
+  {
+    "id": "cls_906472d43cc7",
+    "reference": "bin_513521dcda07",
+    "prediction": {
+      "type": "metal",
+      "label": "Metal",
+      "color": "#64748b",
+      "recyclable": true,
+      "hazardous": false,
+      "confidence": 0.89,
+      "alternatives": [],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 217548,
+    "classified_at": "2026-08-21T16:24:01.200Z"
+  }
+]

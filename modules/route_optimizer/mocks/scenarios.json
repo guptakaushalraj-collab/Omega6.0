@@ -1,0 +1,175 @@
+[
+  {
+    "name": "single_stop",
+    "description": "Degenerate case — one stop, no ordering decision to make.",
+    "request": {
+      "start": {
+        "lat": 12.9716,
+        "lng": 77.5946
+      },
+      "stops": [
+        {
+          "id": "bin_single",
+          "location": {
+            "lat": 12.9752,
+            "lng": 77.6068
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "typical_round",
+    "description": "Six stops across central Bengaluru — a normal morning round.",
+    "request": {
+      "start": {
+        "lat": 12.9716,
+        "lng": 77.5946
+      },
+      "stops": [
+        {
+          "id": "bin_round_1",
+          "address": "MG Road",
+          "location": {
+            "lat": 12.9752,
+            "lng": 77.6068
+          }
+        },
+        {
+          "id": "bin_round_2",
+          "address": "Indiranagar 100ft Rd",
+          "location": {
+            "lat": 12.9719,
+            "lng": 77.6412
+          }
+        },
+        {
+          "id": "bin_round_3",
+          "address": "Koramangala 5th Block",
+          "location": {
+            "lat": 12.9345,
+            "lng": 77.6266
+          }
+        },
+        {
+          "id": "bin_round_4",
+          "address": "Jayanagar 4th Block",
+          "location": {
+            "lat": 12.925,
+            "lng": 77.5838
+          }
+        },
+        {
+          "id": "bin_round_5",
+          "address": "Malleshwaram 8th Cross",
+          "location": {
+            "lat": 13.0055,
+            "lng": 77.5692
+          }
+        },
+        {
+          "id": "bin_round_6",
+          "address": "Whitefield Main Rd",
+          "location": {
+            "lat": 12.9698,
+            "lng": 77.75
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "crossing_path",
+    "description": "Stops ordered so greedy nearest-neighbor produces a self-crossing tour. 2-opt should report a non-zero improvement_km here.",
+    "request": {
+      "start": {
+        "lat": 12.9716,
+        "lng": 77.5946
+      },
+      "stops": [
+        {
+          "id": "bin_x1",
+          "location": {
+            "lat": 12.991,
+            "lng": 77.555
+          }
+        },
+        {
+          "id": "bin_x2",
+          "location": {
+            "lat": 12.925,
+            "lng": 77.5838
+          }
+        },
+        {
+          "id": "bin_x3",
+          "location": {
+            "lat": 13.0055,
+            "lng": 77.5692
+          }
+        },
+        {
+          "id": "bin_x4",
+          "location": {
+            "lat": 12.9422,
+            "lng": 77.576
+          }
+        },
+        {
+          "id": "bin_x5",
+          "location": {
+            "lat": 13.0234,
+            "lng": 77.554
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "wide_spread",
+    "description": "Far-flung stops — Electronic City to Yeshwanthpur, ~30 km apart.",
+    "request": {
+      "start": {
+        "lat": 12.9716,
+        "lng": 77.5946
+      },
+      "stops": [
+        {
+          "id": "bin_w1",
+          "address": "Electronic City Phase 1",
+          "location": {
+            "lat": 12.8452,
+            "lng": 77.6602
+          }
+        },
+        {
+          "id": "bin_w2",
+          "address": "Whitefield Main Rd",
+          "location": {
+            "lat": 12.9698,
+            "lng": 77.75
+          }
+        },
+        {
+          "id": "bin_w3",
+          "address": "Yeshwanthpur Market",
+          "location": {
+            "lat": 13.0234,
+            "lng": 77.554
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "empty",
+    "description": "No stops — must return an empty route, not an error.",
+    "request": {
+      "start": {
+        "lat": 12.9716,
+        "lng": 77.5946
+      },
+      "stops": []
+    }
+  }
+]

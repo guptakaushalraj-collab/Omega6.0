@@ -14,5 +14,10 @@ modules/*/uploads/*
 
 *.log
 .DS_Store
+
+# Secrets — real .env files at ANY depth (root and every module).
+# .env.example files are templates with development-only defaults and ARE
+# tracked; the negation below keeps them that way.
 .env
 .env.local
+!.env.example

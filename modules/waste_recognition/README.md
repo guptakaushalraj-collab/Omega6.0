@@ -96,6 +96,23 @@ To productionize, replace only the block marked
 identical and no consumer needs to change — that shape is the published
 contract, not an implementation detail.
 
+## Configuration
+
+Copy `.env.example` to `.env` and edit; the module loads it via Node's
+built-in `process.loadEnvFile` (no dependency added). Real environment
+variables take precedence over `.env`.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PORT` | `4102` | Port to listen on |
+
+No outbound dependencies — there is nothing else to configure.
+
+## Mock data
+
+`mocks/classifications.json` holds 30 audit records referencing bin ids from
+the shared dataset. Load with `npm run mocks:seed` from the repo root.
+
 ## Notes for a buyer
 
 Stateless apart from a capped audit log, and dependency-free, so this is the

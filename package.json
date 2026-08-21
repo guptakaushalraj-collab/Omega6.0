@@ -4,9 +4,16 @@
   "private": true,
   "type": "module",
   "description": "Intelligent Waste Collection Network — integrated app plus six independently tradable modules",
+  "engines": {
+    "node": ">=20.12"
+  },
   "scripts": {
     "install:modules": "node scripts/modules.js install",
     "modules:start": "node scripts/modules.js start",
-    "modules:test": "node scripts/integration-test.js"
+    "modules:test": "node scripts/integration-test.js",
+    "mocks:generate": "node scripts/generate-mocks.js",
+    "mocks:seed": "node scripts/seed-mocks.js",
+    "mocks:reset": "node scripts/seed-mocks.js --reset",
+    "samples:capture": "node scripts/capture-samples.js"
   }
 }

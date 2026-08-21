@@ -132,6 +132,31 @@ Retains the most recent `MAX_MESSAGES` (default 10,000), oldest evicted
 first. Raise it or mirror to your own store if you need durable message
 history for compliance.
 
+## Configuration
+
+Copy `.env.example` to `.env` and edit; the module loads it via Node's
+built-in `process.loadEnvFile` (no dependency added). Real environment
+variables take precedence over `.env`.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PORT` | `4105` | Port to listen on |
+| `NOTIFY_API_KEY` | `dev-signalpost-key` | Key callers present as `X-API-Key` |
+| `MAX_MESSAGES` | `10000` | Messages retained before oldest-first eviction |
+
+> `NOTIFY_API_KEY`'s default is **public knowledge** — it is the fallback
+> baked into `src/server.js`. Change it before exposing this service, and
+> update every caller (`worker_dashboard` reads the same variable name).
+
+The SMS/email/push gateway credentials are **not** configurable here because
+they were not part of the acquisition — see the channel limitation above.
+
+## Mock data
+
+`mocks/messages.json` holds 60 messages (26 worker, 17 citizen, 17 admin)
+whose `subject_ref` values reference bin ids from the shared dataset, with a
+realistic mix of acknowledged and unread. Load with `npm run mocks:seed`.
+
 ## Notes for a buyer
 
 Resale is permitted under the original perpetual licence. The **support

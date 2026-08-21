@@ -1,0 +1,470 @@
+[
+  {
+    "id": "asg_beb7d5f2d5b2",
+    "job_ref": "bin_21f38919f283",
+    "worker_id": "wrk_bd090a74fa0f",
+    "worker_name": "Asha Kumar",
+    "location": {
+      "lat": 12.93245,
+      "lng": 77.624133
+    },
+    "metadata": {
+      "waste_type": "organic"
+    },
+    "distance_km": 3.1,
+    "status": "completed",
+    "assigned_at": "2026-08-15T06:42:28.000Z",
+    "started_at": "2026-08-15T07:11:45.000Z",
+    "completed_at": "2026-08-15T08:46:00.000Z"
+  },
+  {
+    "id": "asg_3c23d96aebc9",
+    "job_ref": "bin_6d2da09dee43",
+    "worker_id": "wrk_27f4718743a2",
+    "worker_name": "Ravi Singh",
+    "location": {
+      "lat": 12.991492,
+      "lng": 77.552995
+    },
+    "metadata": {
+      "waste_type": "glass"
+    },
+    "distance_km": 2.66,
+    "status": "completed",
+    "assigned_at": "2026-08-15T17:50:22.000Z",
+    "started_at": "2026-08-15T17:55:26.000Z",
+    "completed_at": "2026-08-15T19:06:00.000Z"
+  },
+  {
+    "id": "asg_ccdb9bdb88fe",
+    "job_ref": "bin_11ef5aef3366",
+    "worker_id": "wrk_a5dc057d2532",
+    "worker_name": "Meera Nair",
+    "location": {
+      "lat": 12.932223,
+      "lng": 77.628124
+    },
+    "metadata": {
+      "waste_type": "paper"
+    },
+    "distance_km": 4.4,
+    "status": "completed",
+    "assigned_at": "2026-08-15T18:40:10.000Z",
+    "started_at": "2026-08-15T19:03:11.000Z",
+    "completed_at": "2026-08-15T19:56:00.000Z"
+  },
+  {
+    "id": "asg_283065f41469",
+    "job_ref": "bin_6253033f77bc",
+    "worker_id": "wrk_8f4ada52c53e",
+    "worker_name": "Farhan Ali",
+    "location": {
+      "lat": 12.973051,
+      "lng": 77.604318
+    },
+    "metadata": {
+      "waste_type": "mixed"
+    },
+    "distance_km": 2.61,
+    "status": "assigned",
+    "assigned_at": "2026-08-16T20:02:53.000Z",
+    "started_at": null,
+    "completed_at": null
+  },
+  {
+    "id": "asg_d124fe0949b8",
+    "job_ref": "bin_ac6d443fad7c",
+    "worker_id": "wrk_85b7df8cb00b",
+    "worker_name": "Divya Rao",
+    "location": {
+      "lat": 12.913927,
+      "lng": 77.64866
+    },
+    "metadata": {
+      "waste_type": "paper"
+    },
+    "distance_km": 4.94,
+    "status": "in_progress",
+    "assigned_at": "2026-08-16T06:10:50.000Z",
+    "started_at": "2026-08-16T06:33:02.000Z",
+    "completed_at": null
+  },
+  {
+    "id": "asg_6a86b5fab7ce",
+    "job_ref": "bin_27ef82d34185",
+    "worker_id": "wrk_482df66ab827",
+    "worker_name": "Suresh Babu",
+    "location": {
+      "lat": 12.970418,
+      "lng": 77.64013
+    },
+    "metadata": {
+      "waste_type": "organic"
+    },
+    "distance_km": 2.63,
+    "status": "completed",
+    "assigned_at": "2026-08-16T19:05:05.000Z",
+    "started_at": "2026-08-16T19:34:43.000Z",
+    "completed_at": "2026-08-16T19:50:00.000Z"
+  },
+  {
+    "id": "asg_83b157c8a2dc",
+    "job_ref": "bin_5dae60c26e6f",
+    "worker_id": "wrk_4fe0dd06283b",
+    "worker_name": "Lakshmi Menon",
+    "location": {
+      "lat": 12.913999,
+      "lng": 77.648349
+    },
+    "metadata": {
+      "waste_type": null
+    },
+    "distance_km": 3.37,
+    "status": "completed",
+    "assigned_at": "2026-08-16T19:00:29.000Z",
+    "started_at": "2026-08-16T19:06:29.000Z",
+    "completed_at": "2026-08-16T21:08:00.000Z"
+  },
+  {
+    "id": "asg_43140b6d26af",
+    "job_ref": "bin_03f6a5c3212c",
+    "worker_id": "wrk_75291e86bfc0",
+    "worker_name": "Imran Sheikh",
+    "location": {
+      "lat": 12.942107,
+      "lng": 77.57564
+    },
+    "metadata": {
+      "waste_type": "organic"
+    },
+    "distance_km": 0.68,
+    "status": "in_progress",
+    "assigned_at": "2026-08-17T18:40:30.000Z",
+    "started_at": "2026-08-17T18:59:53.000Z",
+    "completed_at": null
+  },
+  {
+    "id": "asg_da27cf7672ee",
+    "job_ref": "bin_014114f4cd0b",
+    "worker_id": "wrk_bd090a74fa0f",
+    "worker_name": "Asha Kumar",
+    "location": {
+      "lat": 12.933622,
+      "lng": 77.626168
+    },
+    "metadata": {
+      "waste_type": "plastic"
+    },
+    "distance_km": 4.02,
+    "status": "completed",
+    "assigned_at": "2026-08-17T14:18:37.000Z",
+    "started_at": "2026-08-17T14:25:12.000Z",
+    "completed_at": "2026-08-17T15:43:00.000Z"
+  },
+  {
+    "id": "asg_fe54edff6ea6",
+    "job_ref": "bin_3c308c623d7e",
+    "worker_id": "wrk_27f4718743a2",
+    "worker_name": "Ravi Singh",
+    "location": {
+      "lat": 12.974668,
+      "lng": 77.642915
+    },
+    "metadata": {
+      "waste_type": "glass"
+    },
+    "distance_km": 0.64,
+    "status": "completed",
+    "assigned_at": "2026-08-17T06:57:32.000Z",
+    "started_at": "2026-08-17T07:06:58.000Z",
+    "completed_at": "2026-08-17T07:29:00.000Z"
+  },
+  {
+    "id": "asg_9a0ca2f51f4a",
+    "job_ref": "bin_2bc1c24bdde2",
+    "worker_id": "wrk_a5dc057d2532",
+    "worker_name": "Meera Nair",
+    "location": {
+      "lat": 12.973029,
+      "lng": 77.643352
+    },
+    "metadata": {
+      "waste_type": "organic"
+    },
+    "distance_km": 2.17,
+    "status": "completed",
+    "assigned_at": "2026-08-17T13:00:39.000Z",
+    "started_at": "2026-08-17T13:20:49.000Z",
+    "completed_at": "2026-08-17T14:57:00.000Z"
+  },
+  {
+    "id": "asg_9bc237fa6bda",
+    "job_ref": "bin_7a4aab7d316b",
+    "worker_id": "wrk_8f4ada52c53e",
+    "worker_name": "Farhan Ali",
+    "location": {
+      "lat": 12.93243,
+      "lng": 77.6241
+    },
+    "metadata": {
+      "waste_type": "organic"
+    },
+    "distance_km": 6.23,
+    "status": "completed",
+    "assigned_at": "2026-08-18T11:03:01.000Z",
+    "started_at": "2026-08-18T11:14:34.000Z",
+    "completed_at": "2026-08-18T12:06:00.000Z"
+  },
+  {
+    "id": "asg_030733000278",
+    "job_ref": "bin_4fc6852d1631",
+    "worker_id": "wrk_85b7df8cb00b",
+    "worker_name": "Divya Rao",
+    "location": {
+      "lat": 12.992161,
+      "lng": 77.553357
+    },
+    "metadata": {
+      "waste_type": "mixed"
+    },
+    "distance_km": 1.97,
+    "status": "in_progress",
+    "assigned_at": "2026-08-18T18:04:06.000Z",
+    "started_at": "2026-08-18T18:20:42.000Z",
+    "completed_at": null
+  },
+  {
+    "id": "asg_f9a592772741",
+    "job_ref": "bin_b383711963d9",
+    "worker_id": "wrk_482df66ab827",
+    "worker_name": "Suresh Babu",
+    "location": {
+      "lat": 12.943316,
+      "lng": 77.575562
+    },
+    "metadata": {
+      "waste_type": "organic"
+    },
+    "distance_km": 3.24,
+    "status": "completed",
+    "assigned_at": "2026-08-18T14:59:32.000Z",
+    "started_at": "2026-08-18T15:06:24.000Z",
+    "completed_at": "2026-08-18T17:22:00.000Z"
+  },
+  {
+    "id": "asg_caa6d56fdf2f",
+    "job_ref": "bin_bc8afa7b7347",
+    "worker_id": "wrk_4fe0dd06283b",
+    "worker_name": "Lakshmi Menon",
+    "location": {
+      "lat": 12.91374,
+      "lng": 77.647409
+    },
+    "metadata": {
+      "waste_type": "organic"
+    },
+    "distance_km": 0.56,
+    "status": "completed",
+    "assigned_at": "2026-08-18T19:41:47.000Z",
+    "started_at": "2026-08-18T20:08:40.000Z",
+    "completed_at": "2026-08-18T22:09:00.000Z"
+  },
+  {
+    "id": "asg_11b63777f244",
+    "job_ref": "bin_17938611d2aa",
+    "worker_id": "wrk_75291e86bfc0",
+    "worker_name": "Imran Sheikh",
+    "location": {
+      "lat": 12.912795,
+      "lng": 77.648229
+    },
+    "metadata": {
+      "waste_type": "plastic"
+    },
+    "distance_km": 1.2,
+    "status": "completed",
+    "assigned_at": "2026-08-19T09:22:22.000Z",
+    "started_at": "2026-08-19T09:39:10.000Z",
+    "completed_at": "2026-08-19T10:17:00.000Z"
+  },
+  {
+    "id": "asg_5ab9323145cf",
+    "job_ref": "bin_9b72c5537abc",
+    "worker_id": "wrk_bd090a74fa0f",
+    "worker_name": "Asha Kumar",
+    "location": {
+      "lat": 12.96813,
+      "lng": 77.752833
+    },
+    "metadata": {
+      "waste_type": "plastic"
+    },
+    "distance_km": 1,
+    "status": "completed",
+    "assigned_at": "2026-08-19T14:49:59.000Z",
+    "started_at": "2026-08-19T15:14:42.000Z",
+    "completed_at": "2026-08-19T15:17:00.000Z"
+  },
+  {
+    "id": "asg_397f7484e90b",
+    "job_ref": "bin_b0d6bcedcff0",
+    "worker_id": "wrk_27f4718743a2",
+    "worker_name": "Ravi Singh",
+    "location": {
+      "lat": 12.847096,
+      "lng": 77.658948
+    },
+    "metadata": {
+      "waste_type": "mixed"
+    },
+    "distance_km": 2.83,
+    "status": "completed",
+    "assigned_at": "2026-08-19T10:46:11.000Z",
+    "started_at": "2026-08-19T11:15:01.000Z",
+    "completed_at": "2026-08-19T12:34:00.000Z"
+  },
+  {
+    "id": "asg_da4ed03e6f09",
+    "job_ref": "bin_3d6c4123be93",
+    "worker_id": "wrk_a5dc057d2532",
+    "worker_name": "Meera Nair",
+    "location": {
+      "lat": 12.914021,
+      "lng": 77.612802
+    },
+    "metadata": {
+      "waste_type": null
+    },
+    "distance_km": 4.83,
+    "status": "assigned",
+    "assigned_at": "2026-08-19T15:50:00.000Z",
+    "started_at": null,
+    "completed_at": null
+  },
+  {
+    "id": "asg_c64109d20ffa",
+    "job_ref": "bin_d664a6258980",
+    "worker_id": "wrk_8f4ada52c53e",
+    "worker_name": "Farhan Ali",
+    "location": {
+      "lat": 13.006394,
+      "lng": 77.56776
+    },
+    "metadata": {
+      "waste_type": "organic"
+    },
+    "distance_km": 4.88,
+    "status": "completed",
+    "assigned_at": "2026-08-19T08:54:21.000Z",
+    "started_at": "2026-08-19T08:59:11.000Z",
+    "completed_at": "2026-08-19T10:42:00.000Z"
+  },
+  {
+    "id": "asg_d3e4227344c5",
+    "job_ref": "bin_9735e7fed93e",
+    "worker_id": "wrk_85b7df8cb00b",
+    "worker_name": "Divya Rao",
+    "location": {
+      "lat": 12.968603,
+      "lng": 77.748321
+    },
+    "metadata": {
+      "waste_type": null
+    },
+    "distance_km": 4.21,
+    "status": "completed",
+    "assigned_at": "2026-08-20T13:32:09.000Z",
+    "started_at": "2026-08-20T13:41:43.000Z",
+    "completed_at": "2026-08-20T15:47:00.000Z"
+  },
+  {
+    "id": "asg_1b8238fd22b3",
+    "job_ref": "bin_b7571fa50d1d",
+    "worker_id": "wrk_482df66ab827",
+    "worker_name": "Suresh Babu",
+    "location": {
+      "lat": 12.944303,
+      "lng": 77.573723
+    },
+    "metadata": {
+      "waste_type": "organic"
+    },
+    "distance_km": 1.74,
+    "status": "in_progress",
+    "assigned_at": "2026-08-20T08:22:02.000Z",
+    "started_at": "2026-08-20T08:43:19.000Z",
+    "completed_at": null
+  },
+  {
+    "id": "asg_06950b35ed72",
+    "job_ref": "bin_6f938d21f090",
+    "worker_id": "wrk_4fe0dd06283b",
+    "worker_name": "Lakshmi Menon",
+    "location": {
+      "lat": 12.940549,
+      "lng": 77.576296
+    },
+    "metadata": {
+      "waste_type": "plastic"
+    },
+    "distance_km": 1.37,
+    "status": "in_progress",
+    "assigned_at": "2026-08-20T10:21:01.000Z",
+    "started_at": "2026-08-20T10:46:42.000Z",
+    "completed_at": null
+  },
+  {
+    "id": "asg_fb42dc452507",
+    "job_ref": "bin_cceb703f45d7",
+    "worker_id": "wrk_75291e86bfc0",
+    "worker_name": "Imran Sheikh",
+    "location": {
+      "lat": 12.9899,
+      "lng": 77.555659
+    },
+    "metadata": {
+      "waste_type": "organic"
+    },
+    "distance_km": 5.91,
+    "status": "completed",
+    "assigned_at": "2026-08-20T17:15:41.000Z",
+    "started_at": "2026-08-20T17:35:06.000Z",
+    "completed_at": "2026-08-20T17:34:00.000Z"
+  },
+  {
+    "id": "asg_1b1d8fefda4f",
+    "job_ref": "bin_66b139d5027e",
+    "worker_id": "wrk_bd090a74fa0f",
+    "worker_name": "Asha Kumar",
+    "location": {
+      "lat": 12.971586,
+      "lng": 77.639318
+    },
+    "metadata": {
+      "waste_type": "plastic"
+    },
+    "distance_km": 3.09,
+    "status": "assigned",
+    "assigned_at": "2026-08-21T15:11:33.000Z",
+    "started_at": null,
+    "completed_at": null
+  },
+  {
+    "id": "asg_bd9495e8c50f",
+    "job_ref": "bin_21f16e97b636",
+    "worker_id": "wrk_27f4718743a2",
+    "worker_name": "Ravi Singh",
+    "location": {
+      "lat": 12.941931,
+      "lng": 77.576334
+    },
+    "metadata": {
+      "waste_type": "paper"
+    },
+    "distance_km": 6.17,
+    "status": "assigned",
+    "assigned_at": "2026-08-21T12:15:51.000Z",
+    "started_at": null,
+    "completed_at": null
+  }
+]

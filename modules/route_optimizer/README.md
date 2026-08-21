@@ -92,6 +92,37 @@ runtime stays in single-digit milliseconds. The `MAX_STOPS = 200` cap exists
 because 2-opt is O(n²) per pass — beyond that, batch into multiple rounds or
 move to a dedicated solver.
 
+## Configuration
+
+Copy `.env.example` to `.env` and edit; the module loads it via Node's
+built-in `process.loadEnvFile` (no dependency added). Real environment
+variables take precedence over `.env`.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `PORT` | `4103` | Port to listen on |
+
+No outbound dependencies and no state — there is nothing else to configure.
+
+## Mock data
+
+This module is stateless, so `mocks/scenarios.json` holds five solvable
+routing scenarios rather than records to load:
+
+| Scenario | Exercises |
+|---|---|
+| `single_stop` | Degenerate case — no ordering decision |
+| `typical_round` | Six central stops; a normal morning round |
+| `crossing_path` | Built so greedy self-crosses — 2-opt must report non-zero `improvement_km` |
+| `wide_spread` | Far-flung stops ~30 km apart |
+| `empty` | Must return an empty route, **not** an error |
+
+```bash
+curl -X POST http://localhost:4103/api/v1/optimize \
+  -H 'Content-Type: application/json' \
+  -d "$(python3 -c "import json;print(json.dumps(json.load(open('mocks/scenarios.json'))[1]['request']))")"
+```
+
 ## Notes for a buyer
 
 No state and no dependencies, so it scales horizontally with zero
