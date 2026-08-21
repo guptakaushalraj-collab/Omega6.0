@@ -16,7 +16,7 @@
     "notes": "Retains SignalPost API conventions (/v1 base path, X-API-Key auth, snake_case payloads, vendor error envelope). Deliberately NOT normalized to house style \u2014 existing SignalPost client SDKs and vendor documentation must continue to work, and a future buyer expects the API they purchased. Adaptation is carried at the call site."
   },
   "trade": {
-    "status": "available",
+    "status": "retained",
     "notes": "Resale permitted under the original perpetual licence. Support contract transfers only if the buyer assumes the SignalPost maintenance agreement before 2027-03-14.",
     "pricing": {
       "model": "per-message",
@@ -28,6 +28,11 @@
       "uptime": "99.95%",
       "p95_latency_ms": 90,
       "inherited_from": "SignalPost Relay SLA v2.4"
+    },
+    "retention": {
+      "decision_date": "2026-08-21",
+      "decision": "buy / keep",
+      "rationale": "Already acquired; this confirms the position rather than opening a new purchase."
     }
   },
   "interface": {

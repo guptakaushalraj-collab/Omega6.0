@@ -97,8 +97,30 @@ Or run the whole mesh:
 ```bash
 npm run install:modules       # from repo root — installs all six
 npm run modules:start         # :4101-:4106, dependencies pre-wired
-npm run modules:test          # 34-check integration suite
+npm run modules:test          # 47-check integration suite
 ```
+
+## Trading and compliance
+
+Each module is independently sellable, and that is enforced rather than
+asserted:
+
+```bash
+npm run compliance      # 67 checks across isolation, artefacts and legal terms
+npm run extract <module> <dest>
+```
+
+Extraction produces a standalone git repo containing source, contract, docs,
+licence, mocks and samples — and deliberately excludes `node_modules`, runtime
+state, uploaded files and any real `.env`, so a buyer never inherits secrets.
+It generates a `HANDOVER.md` from the module's own manifest so commercial terms
+travel with the code.
+
+Current positions are recorded in [`TRADING.md`](../TRADING.md) and in each
+`module.json` under `trade`. Note that the modules being sold are consumed by
+the ones retained; a perpetual licence-back keeps the network operating, and
+post-sale continuity was verified by repointing the capability env vars at
+externally-hosted instances with no code change.
 
 ## End-to-end workflow
 

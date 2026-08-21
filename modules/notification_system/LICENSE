@@ -1,0 +1,59 @@
+PROPRIETARY SOFTWARE LICENCE
+SignalPost Relay API, version 2.4.1
+
+Copyright (c) 2024-2026 SignalPost Messaging Inc.
+Rights assigned to Omega6.0 Waste Network by asset purchase agreement
+dated 2026-03-14.
+
+--------------------------------------------------------------------------
+1. GRANT
+
+Omega6.0 Waste Network holds a perpetual, irrevocable, worldwide licence to
+use, modify, host and commercially exploit this software, together with the
+assigned copyright in the software as delivered at version 2.4.1.
+
+2. TRANSFER
+
+This licence is TRANSFERABLE. Assignment to a third party requires written
+notice to SignalPost Messaging Inc. (or its successor) within 30 days of the
+transfer. Notice is a notification obligation, not a consent requirement:
+SignalPost cannot withhold or condition the transfer.
+
+3. SUPPORT — TIME-LIMITED, READ THIS BEFORE TRANSFERRING
+
+The maintenance and support agreement attached to this software EXPIRES ON
+2027-03-14.
+
+An acquirer receives ongoing vendor support ONLY IF they expressly assume the
+SignalPost maintenance agreement BEFORE that date. After 2027-03-14 the
+software transfers on an as-is basis with no vendor support path, and no
+successor agreement is available on the original terms.
+
+4. EXCLUSIONS — NOT CONVEYED BY THIS LICENCE
+
+The following were NOT included in the asset purchase and are NOT conveyed:
+
+  (a) SignalPost gateway credentials for the SMS, email and push delivery
+      channels. Those channels are implemented in the software and will
+      accept and queue messages, but nothing dispatches them. Only the
+      in_app channel performs actual delivery. Activating the remaining
+      channels requires either a separate commercial agreement with
+      SignalPost or the licensee's own provider integration.
+
+  (b) The SignalPost trade name, logo and brand assets.
+
+  (c) SignalPost's hosted infrastructure, customer list and contracts.
+
+5. WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED. THE LIABILITY OF SIGNALPOST MESSAGING INC. AND OF OMEGA6.0 WASTE
+NETWORK IS LIMITED TO THE CONSIDERATION PAID UNDER THE APPLICABLE PURCHASE
+AGREEMENT.
+
+--------------------------------------------------------------------------
+Summary for a prospective acquirer:
+  Resale permitted        — yes, with written notice to SignalPost
+  Source included         — yes
+  Vendor support conveys  — ONLY if assumed before 2027-03-14
+  SMS / email / push      — NOT functional; credentials excluded

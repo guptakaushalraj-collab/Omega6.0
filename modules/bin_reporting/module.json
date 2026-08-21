@@ -10,7 +10,7 @@
     "transferable": true
   },
   "trade": {
-    "status": "available",
+    "status": "not_for_sale",
     "notes": "The network's entry point and orchestrator. Carries three outbound dependencies \u2014 all optional and degrading \u2014 so it remains operable standalone as a pure intake log.",
     "pricing": {
       "model": "subscription",
@@ -21,6 +21,11 @@
     "sla": {
       "uptime": "99.5%",
       "p95_latency_ms": 400
+    },
+    "retention": {
+      "decision_date": "2026-08-21",
+      "decision": "hold",
+      "rationale": "The network's citizen-facing entry point and orchestrator. Selling it would sell the product itself, not a component."
     }
   },
   "interface": {

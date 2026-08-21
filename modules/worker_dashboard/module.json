@@ -10,13 +10,13 @@
     "acquisition_date": "2025-11-02",
     "original_product": "FieldOps Crew API",
     "original_version_at_acquisition": "3.0.4",
-    "license": "Proprietary — perpetual, transferable",
+    "license": "Proprietary \u2014 perpetual, transferable",
     "transferable": true,
     "source_code_escrow": true,
-    "notes": "Retains FieldOps conventions (/v1 base path, Bearer auth, snake_case, flat { error, detail } envelope). Vocabulary is deliberately domain-neutral — 'job_ref', not 'bin_id' — because FieldOps sells the same product into other verticals. Keeping that generality preserves resale value beyond waste collection."
+    "notes": "Retains FieldOps conventions (/v1 base path, Bearer auth, snake_case, flat { error, detail } envelope). Vocabulary is deliberately domain-neutral \u2014 'job_ref', not 'bin_id' \u2014 because FieldOps sells the same product into other verticals. Keeping that generality preserves resale value beyond waste collection."
   },
   "trade": {
-    "status": "available",
+    "status": "retained",
     "notes": "Highest-value module in the registry: the only one with an escrowed source agreement and the only one whose vocabulary is vertical-agnostic. Carries three outbound dependencies, all optional and degrading.",
     "pricing": {
       "model": "per-seat",
@@ -28,6 +28,11 @@
       "uptime": "99.9%",
       "p95_latency_ms": 180,
       "inherited_from": "FieldOps Crew SLA v3"
+    },
+    "retention": {
+      "decision_date": "2026-08-21",
+      "decision": "buy / keep",
+      "rationale": "Already acquired; this confirms the position rather than opening a new purchase."
     }
   },
   "interface": {
@@ -68,13 +73,45 @@
     "assignments"
   ],
   "endpoints": [
-    { "method": "POST", "path": "/v1/workers", "summary": "Register a worker" },
-    { "method": "GET", "path": "/v1/workers", "summary": "List workers with assignment counts" },
-    { "method": "PATCH", "path": "/v1/workers/:id", "summary": "Update status or location" },
-    { "method": "POST", "path": "/v1/assignments", "summary": "Dispatch nearest available worker" },
-    { "method": "GET", "path": "/v1/assignments", "summary": "List assignments" },
-    { "method": "PATCH", "path": "/v1/assignments/:id", "summary": "Advance assignment status" },
-    { "method": "GET", "path": "/v1/workers/:id/queue", "summary": "Worker's open jobs, sequenced" },
-    { "method": "GET", "path": "/v1/health", "summary": "Liveness probe and dependency config" }
+    {
+      "method": "POST",
+      "path": "/v1/workers",
+      "summary": "Register a worker"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/workers",
+      "summary": "List workers with assignment counts"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/workers/:id",
+      "summary": "Update status or location"
+    },
+    {
+      "method": "POST",
+      "path": "/v1/assignments",
+      "summary": "Dispatch nearest available worker"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/assignments",
+      "summary": "List assignments"
+    },
+    {
+      "method": "PATCH",
+      "path": "/v1/assignments/:id",
+      "summary": "Advance assignment status"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/workers/:id/queue",
+      "summary": "Worker's open jobs, sequenced"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/health",
+      "summary": "Liveness probe and dependency config"
+    }
   ]
 }

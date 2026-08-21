@@ -10,8 +10,8 @@
     "transferable": true
   },
   "trade": {
-    "status": "available",
-    "notes": "Stateless and dependency-free — the most readily separable module in the registry. Buyer needs only a host and a model artifact.",
+    "status": "sold",
+    "notes": "Stateless and dependency-free \u2014 the most readily separable module in the registry. Buyer needs only a host and a model artifact.",
     "pricing": {
       "model": "per-request",
       "currency": "USD",
@@ -21,6 +21,25 @@
     "sla": {
       "uptime": "99.9%",
       "p95_latency_ms": 120
+    },
+    "settlement": {
+      "decision_date": "2026-08-21",
+      "counterparty": null,
+      "counterparty_note": "COMPLETE AT SIGNING \u2014 no counterparty agreed at the time of writing.",
+      "asking_price_usd": 42000,
+      "rationale": "Stateless, dependency-free and model-agnostic \u2014 the cleanest asset to divest. Value sits in the API contract and integration surface, not the stub model, so the buyer supplies their own inference.",
+      "conveys": [
+        "copyright in the software as delivered",
+        "the right to use, modify, host and commercially exploit",
+        "the right to resell"
+      ],
+      "licence_back": {
+        "granted": true,
+        "scope": "perpetual, non-exclusive, royalty-free, internal operation of the Omega6.0 Waste Network only",
+        "why": "bin_reporting and worker_dashboard both consume this module's capability. Divesting without a licence-back would stop the product on settlement day.",
+        "resale_rights_retained": false
+      },
+      "post_sale_operation": "Continue against our own instance under the licence-back, or repoint the consumer's capability env var at the buyer's hosted endpoint. No code change either way."
     }
   },
   "interface": {
@@ -39,10 +58,30 @@
     "classification_audit_records"
   ],
   "endpoints": [
-    { "method": "POST", "path": "/api/v1/classify", "summary": "Classify a waste photo" },
-    { "method": "GET", "path": "/api/v1/waste-types", "summary": "List the supported taxonomy" },
-    { "method": "GET", "path": "/api/v1/classifications", "summary": "List recent classification audit records" },
-    { "method": "GET", "path": "/api/v1/classifications/:id", "summary": "Fetch one audit record" },
-    { "method": "GET", "path": "/api/v1/health", "summary": "Liveness probe" }
+    {
+      "method": "POST",
+      "path": "/api/v1/classify",
+      "summary": "Classify a waste photo"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/waste-types",
+      "summary": "List the supported taxonomy"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/classifications",
+      "summary": "List recent classification audit records"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/classifications/:id",
+      "summary": "Fetch one audit record"
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/health",
+      "summary": "Liveness probe"
+    }
   ]
 }

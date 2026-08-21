@@ -10,7 +10,7 @@
     "transferable": true
   },
   "trade": {
-    "status": "available",
+    "status": "sold",
     "notes": "Pure computation \u2014 no datastore, no outbound calls, no persistent state. Horizontally scalable behind any load balancer.",
     "pricing": {
       "model": "per-request",
@@ -21,6 +21,25 @@
     "sla": {
       "uptime": "99.9%",
       "p95_latency_ms": 60
+    },
+    "settlement": {
+      "decision_date": "2026-08-21",
+      "counterparty": null,
+      "counterparty_note": "COMPLETE AT SIGNING \u2014 no counterparty agreed at the time of writing.",
+      "asking_price_usd": 28000,
+      "rationale": "Pure computation with no state and no dependencies. Horizontally scalable, so it is worth more to an operator with routing volume than to us.",
+      "conveys": [
+        "copyright in the software as delivered",
+        "the right to use, modify, host and commercially exploit",
+        "the right to resell"
+      ],
+      "licence_back": {
+        "granted": true,
+        "scope": "perpetual, non-exclusive, royalty-free, internal operation of the Omega6.0 Waste Network only",
+        "why": "bin_reporting and worker_dashboard both consume this module's capability. Divesting without a licence-back would stop the product on settlement day.",
+        "resale_rights_retained": false
+      },
+      "post_sale_operation": "Continue against our own instance under the licence-back, or repoint the consumer's capability env var at the buyer's hosted endpoint. No code change either way."
     }
   },
   "interface": {

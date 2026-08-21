@@ -69,6 +69,21 @@ The workflow runs the full sequence one visible step at a time —
 updateAnalytics` — printing each call, result and timing. See
 [`modules/README.md`](./modules/README.md#end-to-end-workflow).
 
+## Trading position
+
+Three modules are being divested and two purchased components retained — see
+[`TRADING.md`](./TRADING.md) for positions, rationale and open risks, and
+[`docs/consultant-brief.md`](./docs/consultant-brief.md) for the 30-minute
+integration review that signs it off.
+
+```bash
+npm run compliance                                  # 67 checks: is each module transferable?
+npm run extract waste_recognition /tmp/wr           # lift one out as its own repo
+```
+
+Every module carries its own `LICENSE` — MIT for the four in-house, proprietary
+for the two acquired, each with its real transfer terms.
+
 ## Getting started
 
 Requires Node.js 18+.

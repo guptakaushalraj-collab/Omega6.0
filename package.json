@@ -15,6 +15,8 @@
     "mocks:seed": "node scripts/seed-mocks.js",
     "mocks:reset": "node scripts/seed-mocks.js --reset",
     "samples:capture": "node scripts/capture-samples.js",
-    "workflow": "node scripts/workflow.js"
+    "workflow": "node scripts/workflow.js",
+    "compliance": "node scripts/compliance-check.js",
+    "extract": "node scripts/extract-module.js"
   }
 }

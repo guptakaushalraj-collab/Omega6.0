@@ -1,0 +1,63 @@
+PROPRIETARY SOFTWARE LICENCE
+FieldOps Crew API, version 3.1.0
+
+Copyright (c) 2023-2026 FieldOps Software Ltd.
+Rights assigned to Omega6.0 Waste Network by asset purchase agreement
+dated 2025-11-02 (delivered at version 3.0.4; 3.1.0 comprises licensee
+modifications made under clause 1).
+
+--------------------------------------------------------------------------
+1. GRANT
+
+Omega6.0 Waste Network holds a perpetual, irrevocable, worldwide licence to
+use, modify, host and commercially exploit this software, together with the
+assigned copyright in the software as delivered. Licensee modifications are
+owned by the licensee and transfer with the software.
+
+2. TRANSFER
+
+This licence is TRANSFERABLE without notice to or consent from FieldOps
+Software Ltd. It may be assigned outright, sublicensed, or included in the
+sale of a business unit.
+
+3. SOURCE CODE ESCROW
+
+Source code for the software is held in escrow (agreement FOS-ESC-2211).
+The escrow agreement transfers with the licence. An acquirer should notify
+the escrow agent of the change of beneficiary to preserve release rights on
+a vendor-insolvency trigger.
+
+Because the full source is delivered directly under this licence, the escrow
+is a continuity safeguard for the ORIGINAL vendor's build artefacts and
+toolchain, not the only route to the code.
+
+4. FIELD OF USE — UNRESTRICTED
+
+FieldOps sells this product into field service, logistics, utilities and
+waste management. This licence carries NO field-of-use restriction: the
+software may be deployed in any vertical.
+
+Note for a prospective acquirer: the software's domain-neutral vocabulary
+(`job_ref` rather than any domain-specific identifier) is deliberate and
+preserves that generality. Narrowing it to one vertical would reduce the
+asset's resale value.
+
+5. NO SUPPORT AGREEMENT ATTACHED
+
+No maintenance or support agreement was included in the asset purchase.
+The software transfers as-is. FieldOps Software Ltd. has no ongoing
+obligation to the licensee or to any subsequent acquirer.
+
+6. WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED. THE LIABILITY OF FIELDOPS SOFTWARE LTD. AND OF OMEGA6.0 WASTE
+NETWORK IS LIMITED TO THE CONSIDERATION PAID UNDER THE APPLICABLE PURCHASE
+AGREEMENT.
+
+--------------------------------------------------------------------------
+Summary for a prospective acquirer:
+  Resale permitted        — yes, no notice or consent required
+  Source included         — yes, plus escrow (FOS-ESC-2211)
+  Vendor support conveys  — none exists; as-is
+  Field-of-use limits     — none
