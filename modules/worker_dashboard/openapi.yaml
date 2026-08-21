@@ -1,0 +1,298 @@
+openapi: 3.0.3
+info:
+  title: FieldOps Crew API
+  version: 3.1.0
+  description: >
+    Field workforce roster and assignment lifecycle. ACQUIRED module — retains
+    FieldOps conventions (/v1 base path, Bearer auth, snake_case, flat
+    { error, detail } envelope) and domain-neutral vocabulary (job_ref, not
+    bin_id). Not normalized to house style.
+  license:
+    name: Proprietary — perpetual, transferable
+servers:
+  - url: http://localhost:4106
+    description: Local
+security:
+  - BearerAuth: []
+paths:
+  /v1/health:
+    get:
+      summary: Liveness probe and dependency config
+      security: []
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  service: { type: string }
+                  version: { type: string }
+                  dependencies:
+                    type: object
+                    properties:
+                      route_optimizer: { type: string, nullable: true }
+                      notification_system: { type: string, nullable: true }
+                      analytics_dashboard: { type: string, nullable: true }
+                      timeout_ms: { type: integer }
+  /v1/workers:
+    post:
+      summary: Register a worker
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, location]
+              properties:
+                name: { type: string }
+                phone: { type: string, nullable: true }
+                location: { $ref: "#/components/schemas/Point" }
+      responses:
+        "201":
+          description: Worker created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Worker" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    get:
+      summary: List workers with assignment counts
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string, enum: [available, busy, off_shift] }
+      responses:
+        "200":
+          description: Worker list envelope
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count: { type: integer }
+                  workers:
+                    type: array
+                    items: { $ref: "#/components/schemas/WorkerWithCounts" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /v1/workers/{id}:
+    patch:
+      summary: Update status or location
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [available, busy, off_shift] }
+                location: { $ref: "#/components/schemas/Point" }
+      responses:
+        "200":
+          description: Updated worker
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Worker" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /v1/workers/{id}/queue:
+    get:
+      summary: Worker's open jobs, sequenced
+      description: >
+        Degrades when route_optimizer is unavailable — returns stops unordered
+        with optimized:false and a degraded_reason rather than failing. Always
+        check `optimized` before relying on stop order.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Sequenced (or degraded) queue
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Queue" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /v1/assignments:
+    post:
+      summary: Dispatch nearest available worker
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [job_ref, location]
+              properties:
+                job_ref:
+                  type: string
+                  description: Caller's opaque job id (a bin id, in this network)
+                location: { $ref: "#/components/schemas/Point" }
+                metadata:
+                  type: object
+                  additionalProperties: true
+                  description: Passed through untouched onto the assignment
+      responses:
+        "201":
+          description: Assignment created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssignmentWithEffects" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { description: An open assignment already exists for that job_ref }
+        "503": { description: No available worker }
+    get:
+      summary: List assignments
+      parameters:
+        - { in: query, name: worker_id, schema: { type: string } }
+        - { in: query, name: job_ref, schema: { type: string } }
+        - { in: query, name: status, schema: { type: string, enum: [assigned, in_progress, completed] } }
+      responses:
+        "200":
+          description: Assignment list envelope
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count: { type: integer }
+                  assignments:
+                    type: array
+                    items: { $ref: "#/components/schemas/Assignment" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /v1/assignments/{id}:
+    patch:
+      summary: Advance assignment status
+      description: >
+        On `completed`, fires citizen and admin notifications plus a
+        bin.collected analytics event, and frees the worker only if this was
+        their last open job. Completed assignments are immutable.
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [assigned, in_progress, completed] }
+      responses:
+        "200":
+          description: Updated assignment
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AssignmentWithEffects" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { description: Already completed — immutable }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    Point:
+      type: object
+      required: [lat, lng]
+      properties:
+        lat: { type: number, format: double }
+        lng: { type: number, format: double }
+    Worker:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        phone: { type: string, nullable: true }
+        location: { $ref: "#/components/schemas/Point" }
+        status: { type: string, enum: [available, busy, off_shift] }
+        created_at: { type: string, format: date-time }
+    WorkerWithCounts:
+      allOf:
+        - $ref: "#/components/schemas/Worker"
+        - type: object
+          properties:
+            open_assignments: { type: integer }
+            completed_assignments: { type: integer }
+    Assignment:
+      type: object
+      properties:
+        id: { type: string }
+        job_ref: { type: string }
+        worker_id: { type: string }
+        worker_name: { type: string }
+        location: { $ref: "#/components/schemas/Point" }
+        metadata: { type: object, additionalProperties: true }
+        distance_km: { type: number, format: float }
+        status: { type: string, enum: [assigned, in_progress, completed] }
+        assigned_at: { type: string, format: date-time }
+        started_at: { type: string, format: date-time, nullable: true }
+        completed_at: { type: string, format: date-time, nullable: true }
+    AssignmentWithEffects:
+      allOf:
+        - $ref: "#/components/schemas/Assignment"
+        - type: object
+          properties:
+            side_effects:
+              type: object
+              description: >
+                Per-dependency outcome. "sent"/"recorded" on success, or
+                "skipped:<reason>" where reason is not_configured, timeout,
+                unreachable or upstream_<status>.
+              additionalProperties: { type: string }
+    Queue:
+      type: object
+      properties:
+        worker_id: { type: string }
+        worker_name: { type: string }
+        optimized: { type: boolean }
+        degraded_reason: { type: string, nullable: true }
+        strategy: { type: string }
+        total_distance_km: { type: number, format: float, nullable: true }
+        stops:
+          type: array
+          items:
+            type: object
+            properties:
+              assignment_id: { type: string }
+              job_ref: { type: string }
+              location: { $ref: "#/components/schemas/Point" }
+              metadata: { type: object, additionalProperties: true }
+              sequence: { type: integer }
+              leg_distance_km: { type: number, format: float }
+              cumulative_distance_km: { type: number, format: float }
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+        detail: { type: string }
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Missing or invalid bearer token
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unprocessable:
+      description: Unprocessable entity
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }

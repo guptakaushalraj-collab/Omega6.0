@@ -7,6 +7,11 @@ backend/src/data/db.json
 backend/uploads/*
 !backend/uploads/.gitkeep
 
+# Module runtime data — each module creates its own store on first request
+modules/*/src/data/
+modules/*/uploads/*
+!modules/*/uploads/.gitkeep
+
 *.log
 .DS_Store
 .env

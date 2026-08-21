@@ -1,0 +1,48 @@
+{
+  "module": "waste_recognition",
+  "version": "1.0.0",
+  "title": "Waste Recognition",
+  "summary": "Classifies waste type from a bin photograph and returns a labelled prediction with a confidence score.",
+  "provenance": {
+    "origin": "in-house",
+    "owner": "Omega6.0 Waste Network",
+    "license": "MIT",
+    "transferable": true
+  },
+  "trade": {
+    "status": "available",
+    "notes": "Stateless and dependency-free — the most readily separable module in the registry. Buyer needs only a host and a model artifact.",
+    "pricing": {
+      "model": "per-request",
+      "currency": "USD",
+      "per_1k_requests": 4.0,
+      "free_tier_requests": 1000
+    },
+    "sla": {
+      "uptime": "99.9%",
+      "p95_latency_ms": 120
+    }
+  },
+  "interface": {
+    "protocol": "REST/HTTP",
+    "base_path": "/api/v1",
+    "default_port": 4102,
+    "auth": "none",
+    "openapi": "./openapi.yaml"
+  },
+  "provides": [
+    "waste.classify",
+    "waste.taxonomy"
+  ],
+  "requires": [],
+  "owns_data": [
+    "classification_audit_records"
+  ],
+  "endpoints": [
+    { "method": "POST", "path": "/api/v1/classify", "summary": "Classify a waste photo" },
+    { "method": "GET", "path": "/api/v1/waste-types", "summary": "List the supported taxonomy" },
+    { "method": "GET", "path": "/api/v1/classifications", "summary": "List recent classification audit records" },
+    { "method": "GET", "path": "/api/v1/classifications/:id", "summary": "Fetch one audit record" },
+    { "method": "GET", "path": "/api/v1/health", "summary": "Liveness probe" }
+  ]
+}

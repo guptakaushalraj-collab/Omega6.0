@@ -1,0 +1,122 @@
+openapi: 3.0.3
+info:
+  title: Waste Recognition
+  version: 1.0.0
+  description: Classifies waste type from a bin photograph.
+  license:
+    name: MIT
+servers:
+  - url: http://localhost:4102
+    description: Local
+paths:
+  /api/v1/health:
+    get:
+      summary: Liveness probe
+      responses:
+        "200":
+          description: Service is up
+  /api/v1/waste-types:
+    get:
+      summary: List the supported taxonomy
+      responses:
+        "200":
+          description: Taxonomy entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/WasteType" }
+  /api/v1/classify:
+    post:
+      summary: Classify a waste photo
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                photo: { type: string, format: binary }
+                reference: { type: string, description: Opaque caller correlation id }
+          application/json:
+            schema:
+              type: object
+              required: [image_base64]
+              properties:
+                image_base64: { type: string }
+                reference: { type: string }
+      responses:
+        "200":
+          description: Classification record
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ClassificationRecord" }
+        "400": { description: Missing or malformed image }
+        "413": { description: Image exceeds 8 MB }
+        "422": { description: Image unreadable }
+  /api/v1/classifications:
+    get:
+      summary: Recent classification audit records
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50, maximum: 500 }
+      responses:
+        "200":
+          description: Audit records, newest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ClassificationRecord" }
+  /api/v1/classifications/{id}:
+    get:
+      summary: Fetch one audit record
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Audit record
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ClassificationRecord" }
+        "404": { description: Not found }
+components:
+  schemas:
+    WasteType:
+      type: object
+      properties:
+        type: { type: string, example: plastic }
+        label: { type: string, example: Plastic }
+        color: { type: string, example: "#2563eb" }
+        recyclable: { type: boolean }
+        hazardous: { type: boolean }
+    Prediction:
+      type: object
+      properties:
+        type: { type: string }
+        label: { type: string }
+        color: { type: string }
+        recyclable: { type: boolean }
+        hazardous: { type: boolean }
+        confidence: { type: number, format: float, example: 0.86 }
+        alternatives:
+          type: array
+          items:
+            type: object
+            properties:
+              type: { type: string }
+              label: { type: string }
+              confidence: { type: number, format: float }
+        model_version: { type: string }
+    ClassificationRecord:
+      type: object
+      properties:
+        id: { type: string }
+        reference: { type: string, nullable: true }
+        prediction: { $ref: "#/components/schemas/Prediction" }
+        image_bytes: { type: integer }
+        classified_at: { type: string, format: date-time }

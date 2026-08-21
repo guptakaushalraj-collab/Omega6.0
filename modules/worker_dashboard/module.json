@@ -1,0 +1,80 @@
+{
+  "module": "worker_dashboard",
+  "version": "3.1.0",
+  "title": "Worker Dashboard",
+  "summary": "Field workforce roster and assignment lifecycle, with nearest-worker dispatch and per-worker sequenced job queues.",
+  "provenance": {
+    "origin": "acquired",
+    "owner": "Omega6.0 Waste Network",
+    "acquired_from": "FieldOps Software Ltd.",
+    "acquisition_date": "2025-11-02",
+    "original_product": "FieldOps Crew API",
+    "original_version_at_acquisition": "3.0.4",
+    "license": "Proprietary — perpetual, transferable",
+    "transferable": true,
+    "source_code_escrow": true,
+    "notes": "Retains FieldOps conventions (/v1 base path, Bearer auth, snake_case, flat { error, detail } envelope). Vocabulary is deliberately domain-neutral — 'job_ref', not 'bin_id' — because FieldOps sells the same product into other verticals. Keeping that generality preserves resale value beyond waste collection."
+  },
+  "trade": {
+    "status": "available",
+    "notes": "Highest-value module in the registry: the only one with an escrowed source agreement and the only one whose vocabulary is vertical-agnostic. Carries three outbound dependencies, all optional and degrading.",
+    "pricing": {
+      "model": "per-seat",
+      "currency": "USD",
+      "per_worker_seat_monthly": 12,
+      "minimum_seats": 10
+    },
+    "sla": {
+      "uptime": "99.9%",
+      "p95_latency_ms": 180,
+      "inherited_from": "FieldOps Crew SLA v3"
+    }
+  },
+  "interface": {
+    "protocol": "REST/HTTP",
+    "base_path": "/v1",
+    "default_port": 4106,
+    "auth": "Authorization: Bearer <token>",
+    "conventions": "snake_case payloads; flat error envelope { error, detail }",
+    "openapi": "./openapi.yaml"
+  },
+  "provides": [
+    "workforce.roster",
+    "workforce.dispatch",
+    "workforce.queue"
+  ],
+  "requires": [
+    {
+      "capability": "route.optimize",
+      "env": "ROUTE_OPTIMIZER_URL",
+      "optional": true,
+      "degradation": "Queue returns stops unordered with optimized:false and a degraded_reason; the worker still sees their jobs."
+    },
+    {
+      "capability": "notify.send",
+      "env": "NOTIFICATION_URL",
+      "optional": true,
+      "degradation": "Assignment and completion still succeed; the alert is skipped and reported in side_effects."
+    },
+    {
+      "capability": "analytics.ingest",
+      "env": "ANALYTICS_URL",
+      "optional": true,
+      "degradation": "Assignment and completion still succeed; metrics lose a data point."
+    }
+  ],
+  "owns_data": [
+    "workers",
+    "assignments"
+  ],
+  "endpoints": [
+    { "method": "POST", "path": "/v1/workers", "summary": "Register a worker" },
+    { "method": "GET", "path": "/v1/workers", "summary": "List workers with assignment counts" },
+    { "method": "PATCH", "path": "/v1/workers/:id", "summary": "Update status or location" },
+    { "method": "POST", "path": "/v1/assignments", "summary": "Dispatch nearest available worker" },
+    { "method": "GET", "path": "/v1/assignments", "summary": "List assignments" },
+    { "method": "PATCH", "path": "/v1/assignments/:id", "summary": "Advance assignment status" },
+    { "method": "GET", "path": "/v1/workers/:id/queue", "summary": "Worker's open jobs, sequenced" },
+    { "method": "GET", "path": "/v1/health", "summary": "Liveness probe and dependency config" }
+  ]
+}

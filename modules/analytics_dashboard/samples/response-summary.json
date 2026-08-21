@@ -1,0 +1,39 @@
+{
+  "totals": {
+    "events": 9,
+    "reported": 2,
+    "collected": 1,
+    "outstanding": 1,
+    "notifications_sent": 3,
+    "routes_optimized": 1
+  },
+  "collection_rate": 0.5,
+  "resolution_minutes": {
+    "samples": 1,
+    "mean": 0,
+    "p50": 0,
+    "p90": 0
+  },
+  "event_counts": {
+    "bin.reported": 2,
+    "bin.classified": 1,
+    "bin.assigned": 1,
+    "bin.collected": 1,
+    "notification.sent": 3,
+    "route.optimized": 1
+  },
+  "waste_mix": [
+    {
+      "type": "mixed",
+      "count": 1,
+      "share": 1
+    }
+  ],
+  "worker_activity": [
+    {
+      "worker_id": "wrk_08278df98e7c",
+      "assigned": 1,
+      "collected": 1
+    }
+  ]
+}

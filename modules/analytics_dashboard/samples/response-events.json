@@ -1,0 +1,76 @@
+[
+  {
+    "id": "evt_49457289d5da",
+    "type": "notification.sent",
+    "subject_id": "bin_534faeb174b4",
+    "source": "worker_dashboard",
+    "payload": {
+      "recipient_type": "admin",
+      "trigger": "completed"
+    },
+    "occurred_at": "2026-08-21T14:04:42.768Z",
+    "received_at": "2026-08-21T14:04:42.769Z",
+    "known_type": true
+  },
+  {
+    "id": "evt_425bdbe0793d",
+    "type": "notification.sent",
+    "subject_id": "bin_534faeb174b4",
+    "source": "worker_dashboard",
+    "payload": {
+      "recipient_type": "citizen",
+      "trigger": "completed"
+    },
+    "occurred_at": "2026-08-21T14:04:42.767Z",
+    "received_at": "2026-08-21T14:04:42.767Z",
+    "known_type": true
+  },
+  {
+    "id": "evt_31d2f1edd382",
+    "type": "bin.collected",
+    "subject_id": "bin_534faeb174b4",
+    "source": "worker_dashboard",
+    "payload": {
+      "worker_id": "wrk_08278df98e7c"
+    },
+    "occurred_at": "2026-08-21T14:04:42.762Z",
+    "received_at": "2026-08-21T14:04:42.762Z",
+    "known_type": true
+  },
+  {
+    "id": "evt_53f3d7683a64",
+    "type": "route.optimized",
+    "subject_id": "wrk_08278df98e7c",
+    "source": "worker_dashboard",
+    "payload": {
+      "stop_count": 1
+    },
+    "occurred_at": "2026-08-21T14:04:42.757Z",
+    "received_at": "2026-08-21T14:04:42.757Z",
+    "known_type": true
+  },
+  {
+    "id": "evt_494c107eeb59",
+    "type": "bin.reported",
+    "subject_id": "bin_4eb7e99fceab",
+    "source": "bin_reporting",
+    "payload": {
+      "has_photo": false
+    },
+    "occurred_at": "2026-08-21T14:04:42.743Z",
+    "received_at": "2026-08-21T14:04:42.743Z",
+    "known_type": true
+  },
+  {
+    "id": "evt_81405e9fd477",
+    "type": "bin.classified",
+    "subject_id": "bin_534faeb174b4",
+    "source": "bin_reporting",
+    "payload": {
+      "waste_type": "mixed"
+    },
+    "occurred_at": "2026-08-21T14:04:42.735Z",
+    "received_at": "2026-08-21T14:04:42.735Z",
+    "known_type": true
+  }
+]

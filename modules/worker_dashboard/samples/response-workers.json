@@ -1,0 +1,44 @@
+{
+  "count": 3,
+  "workers": [
+    {
+      "id": "wrk_cf8ed42fafd7",
+      "name": "Asha Kumar",
+      "phone": null,
+      "location": {
+        "lat": 12.96,
+        "lng": 77.58
+      },
+      "status": "available",
+      "created_at": "2026-08-21T14:04:42.699Z",
+      "open_assignments": 0,
+      "completed_assignments": 0
+    },
+    {
+      "id": "wrk_08278df98e7c",
+      "name": "Ravi Singh",
+      "phone": null,
+      "location": {
+        "lat": 12.972,
+        "lng": 77.591
+      },
+      "status": "busy",
+      "created_at": "2026-08-21T14:04:42.704Z",
+      "open_assignments": 1,
+      "completed_assignments": 0
+    },
+    {
+      "id": "wrk_6453c7c876d4",
+      "name": "Meera Nair",
+      "phone": null,
+      "location": {
+        "lat": 12.985,
+        "lng": 77.602
+      },
+      "status": "available",
+      "created_at": "2026-08-21T14:04:42.707Z",
+      "open_assignments": 0,
+      "completed_assignments": 0
+    }
+  ]
+}

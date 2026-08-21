@@ -1,0 +1,183 @@
+openapi: 3.0.3
+info:
+  title: SignalPost Relay API
+  version: 2.4.1
+  description: >
+    Multi-channel message delivery. ACQUIRED module — retains SignalPost
+    vendor conventions (/v1 base path, X-API-Key auth, snake_case payloads,
+    { error: { code, message } } envelope). Not normalized to house style.
+  license:
+    name: Proprietary — perpetual, transferable with written notice
+servers:
+  - url: http://localhost:4105
+    description: Local
+security:
+  - ApiKeyAuth: []
+paths:
+  /v1/health:
+    get:
+      summary: Liveness probe
+      security: []
+      responses:
+        "200": { description: Service is up }
+  /v1/channels:
+    get:
+      summary: List delivery channels
+      responses:
+        "200":
+          description: Supported channels
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  channels: { type: array, items: { type: string } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /v1/messages:
+    post:
+      summary: Send a message
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MessageInput" }
+      responses:
+        "201":
+          description: Message created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Message" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+    get:
+      summary: List messages / recipient inbox
+      parameters:
+        - { in: query, name: recipient_type, schema: { type: string } }
+        - { in: query, name: recipient_id, schema: { type: string } }
+        - { in: query, name: subject_ref, schema: { type: string } }
+        - { in: query, name: unacknowledged, schema: { type: string, enum: ["true"] } }
+        - { in: query, name: limit, schema: { type: integer, default: 100, maximum: 500 } }
+      responses:
+        "200":
+          description: Message list envelope
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count: { type: integer }
+                  messages:
+                    type: array
+                    items: { $ref: "#/components/schemas/Message" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /v1/messages/{id}:
+    get:
+      summary: Fetch one message
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Message
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Message" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /v1/messages/{id}/ack:
+    post:
+      summary: Acknowledge (mark read) — idempotent
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Acknowledged message
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Message" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /v1/messages/ack_all:
+    post:
+      summary: Acknowledge a whole inbox
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: At least one selector required
+              properties:
+                recipient_type: { type: string }
+                recipient_id: { type: string }
+      responses:
+        "200":
+          description: Count acknowledged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  acknowledged: { type: integer }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+  schemas:
+    MessageInput:
+      type: object
+      required: [recipient_type, body]
+      properties:
+        recipient_type: { type: string, example: worker }
+        recipient_id: { type: string, nullable: true }
+        channel:
+          type: string
+          enum: [in_app, sms, email, push]
+          default: in_app
+          description: Only in_app is actually delivered by this build; others record as queued.
+        body: { type: string, maxLength: 1000 }
+        subject_ref: { type: string, nullable: true, description: Opaque correlation id }
+        metadata: { type: object, additionalProperties: true }
+    Message:
+      allOf:
+        - $ref: "#/components/schemas/MessageInput"
+        - type: object
+          properties:
+            id: { type: string }
+            delivery_status: { type: string, enum: [delivered, queued] }
+            acknowledged: { type: boolean }
+            created_at: { type: string, format: date-time }
+            acknowledged_at: { type: string, format: date-time, nullable: true }
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Missing or invalid API key
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unprocessable:
+      description: Unprocessable entity
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }

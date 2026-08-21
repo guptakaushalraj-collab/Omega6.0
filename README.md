@@ -41,6 +41,27 @@ needing a trained model or a paid vision API. Swap the body of
 TensorFlow.js, or a cloud vision API) — the function signature and return
 shape (`{ type, label, confidence, source }`) are the integration point.
 
+## Two packagings
+
+The same capability set ships two ways — pick whichever fits the situation.
+
+| | `backend/` + `frontend/` | `modules/` |
+|---|---|---|
+| Shape | One Express process + React UI | Six independent services |
+| Use it for | Demos, single-operator deployment | Selling, licensing or transferring capabilities individually |
+| Datastore | One shared JSON store | One per module, sole-writer |
+| Coupling | Direct function calls | HTTP, with declared capabilities and graceful degradation |
+
+These are alternative packagings of one product, not two competing codebases.
+See [`modules/README.md`](./modules/README.md) for the tradable-module
+registry, its manifest schema, and the rules that keep the six separable.
+
+```bash
+npm run install:modules   # install all six
+npm run modules:start     # run the mesh on :4101-:4106
+npm run modules:test      # 34-check integration suite
+```
+
 ## Getting started
 
 Requires Node.js 18+.
@@ -82,9 +103,22 @@ frontend/
     pages/                 ReportBin, WorkerDashboard, AdminDashboard, NotificationsPage
     components/            NavBar, MiniMap, StatCard, StatusBadge, Toast
     api.js                 Fetch wrapper for the backend API
+modules/                   Six independently tradable services — see modules/README.md
+  bin_reporting/           :4101  in-house
+  waste_recognition/       :4102  in-house
+  route_optimizer/         :4103  in-house
+  analytics_dashboard/     :4104  in-house
+  notification_system/     :4105  acquired (SignalPost Relay)
+  worker_dashboard/        :4106  acquired (FieldOps Crew)
+scripts/
+  modules.js               Install / run the whole module mesh
+  integration-test.js      34-check composition + degradation suite
+  capture-samples.js       Regenerate every samples/ dir from live responses
 ```
 
-## API overview
+## API overview (integrated `backend/`)
+
+Each module publishes its own contract separately — see its `openapi.yaml`.
 
 | Method | Path                          | Purpose                              |
 |--------|-------------------------------|---------------------------------------|

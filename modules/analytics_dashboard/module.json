@@ -1,0 +1,55 @@
+{
+  "module": "analytics_dashboard",
+  "version": "1.0.0",
+  "title": "Analytics Dashboard",
+  "summary": "Ingests operational events and derives collection metrics, waste mix, resolution times and worker activity.",
+  "provenance": {
+    "origin": "in-house",
+    "owner": "Omega6.0 Waste Network",
+    "license": "MIT",
+    "transferable": true
+  },
+  "trade": {
+    "status": "available",
+    "notes": "Push-based: derives everything from events it is sent and never reads another module's database. Portable to any operator willing to emit the documented event shapes.",
+    "pricing": {
+      "model": "subscription",
+      "currency": "USD",
+      "monthly": 249,
+      "included_events_per_month": 500000
+    },
+    "sla": {
+      "uptime": "99.5%",
+      "p95_latency_ms": 200
+    }
+  },
+  "interface": {
+    "protocol": "REST/HTTP",
+    "base_path": "/api/v1",
+    "default_port": 4104,
+    "auth": "none",
+    "openapi": "./openapi.yaml"
+  },
+  "provides": [
+    "analytics.ingest",
+    "analytics.summary",
+    "analytics.trends"
+  ],
+  "requires": [],
+  "owns_data": [
+    "operational_event_log"
+  ],
+  "limits": {
+    "retained_events": 20000,
+    "eviction": "oldest-first",
+    "configurable_via": "MAX_EVENTS"
+  },
+  "endpoints": [
+    { "method": "POST", "path": "/api/v1/events", "summary": "Ingest an operational event" },
+    { "method": "GET", "path": "/api/v1/events", "summary": "Query the raw event log" },
+    { "method": "GET", "path": "/api/v1/summary", "summary": "Derived operational metrics" },
+    { "method": "GET", "path": "/api/v1/trends", "summary": "Reported vs collected per day" },
+    { "method": "GET", "path": "/api/v1/event-types", "summary": "Event types included in derived metrics" },
+    { "method": "GET", "path": "/api/v1/health", "summary": "Liveness probe" }
+  ]
+}

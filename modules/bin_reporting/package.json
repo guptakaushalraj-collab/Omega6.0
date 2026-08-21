@@ -1,0 +1,16 @@
+{
+  "name": "@omega6/bin-reporting",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Citizen-facing overflowing-bin intake",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "multer": "^2.0.0"
+  }
+}

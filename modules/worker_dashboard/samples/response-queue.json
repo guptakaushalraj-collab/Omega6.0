@@ -1,0 +1,23 @@
+{
+  "worker_id": "wrk_08278df98e7c",
+  "worker_name": "Ravi Singh",
+  "optimized": true,
+  "strategy": "nearest-neighbor + 2-opt",
+  "total_distance_km": 0.43,
+  "stops": [
+    {
+      "assignment_id": "asg_d142a91aeaa6",
+      "job_ref": "bin_534faeb174b4",
+      "location": {
+        "lat": 12.972,
+        "lng": 77.595
+      },
+      "metadata": {
+        "waste_type": "mixed"
+      },
+      "sequence": 1,
+      "leg_distance_km": 0.43,
+      "cumulative_distance_km": 0.43
+    }
+  ]
+}

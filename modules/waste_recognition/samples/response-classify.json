@@ -1,0 +1,27 @@
+{
+  "id": "cls_7753b5db622f",
+  "reference": "bin_1fab6e6fa493",
+  "prediction": {
+    "type": "mixed",
+    "label": "Mixed",
+    "color": "#78716c",
+    "recyclable": false,
+    "hazardous": false,
+    "confidence": 0.73,
+    "alternatives": [
+      {
+        "type": "organic",
+        "label": "Organic",
+        "confidence": 0.33
+      },
+      {
+        "type": "metal",
+        "label": "Metal",
+        "confidence": 0.22
+      }
+    ],
+    "model_version": "stub-cv-1.0.0"
+  },
+  "image_bytes": 68,
+  "classified_at": "2026-08-21T14:04:42.675Z"
+}

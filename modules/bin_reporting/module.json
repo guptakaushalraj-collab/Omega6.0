@@ -1,0 +1,73 @@
+{
+  "module": "bin_reporting",
+  "version": "1.0.0",
+  "title": "Bin Reporting",
+  "summary": "Citizen-facing intake for overflowing bins: photo, location, classification and dispatch orchestration.",
+  "provenance": {
+    "origin": "in-house",
+    "owner": "Omega6.0 Waste Network",
+    "license": "MIT",
+    "transferable": true
+  },
+  "trade": {
+    "status": "available",
+    "notes": "The network's entry point and orchestrator. Carries three outbound dependencies — all optional and degrading — so it remains operable standalone as a pure intake log.",
+    "pricing": {
+      "model": "subscription",
+      "currency": "USD",
+      "monthly": 399,
+      "included_reports_per_month": 50000
+    },
+    "sla": {
+      "uptime": "99.5%",
+      "p95_latency_ms": 400
+    }
+  },
+  "interface": {
+    "protocol": "REST/HTTP",
+    "base_path": "/api/v1",
+    "default_port": 4101,
+    "auth": "none (public citizen intake)",
+    "openapi": "./openapi.yaml"
+  },
+  "provides": [
+    "bins.report",
+    "bins.query"
+  ],
+  "requires": [
+    {
+      "capability": "waste.classify",
+      "env": "WASTE_RECOGNITION_URL",
+      "optional": true,
+      "degradation": "Report is stored unclassified with degraded.classification set; recoverable later via POST /api/v1/reports/:id/reclassify."
+    },
+    {
+      "capability": "workforce.dispatch",
+      "env": "WORKER_DASHBOARD_URL",
+      "optional": true,
+      "degradation": "Report stays status 'reported' with degraded.assignment set; can be dispatched later."
+    },
+    {
+      "capability": "analytics.ingest",
+      "env": "ANALYTICS_URL",
+      "optional": true,
+      "degradation": "Report succeeds; metrics lose a data point."
+    }
+  ],
+  "owns_data": [
+    "bin_reports",
+    "uploaded_photos"
+  ],
+  "limits": {
+    "max_photo_bytes": 8388608,
+    "accepted_mime": "image/*"
+  },
+  "endpoints": [
+    { "method": "POST", "path": "/api/v1/reports", "summary": "Report an overflowing bin" },
+    { "method": "GET", "path": "/api/v1/reports", "summary": "List reports" },
+    { "method": "GET", "path": "/api/v1/reports/:id", "summary": "Fetch one report" },
+    { "method": "POST", "path": "/api/v1/reports/:id/reclassify", "summary": "Backfill a skipped classification" },
+    { "method": "PATCH", "path": "/api/v1/reports/:id/status", "summary": "Update lifecycle status" },
+    { "method": "GET", "path": "/api/v1/health", "summary": "Liveness probe and dependency config" }
+  ]
+}

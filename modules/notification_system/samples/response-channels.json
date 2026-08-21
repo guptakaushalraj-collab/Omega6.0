@@ -1,0 +1,8 @@
+{
+  "channels": [
+    "in_app",
+    "sms",
+    "email",
+    "push"
+  ]
+}

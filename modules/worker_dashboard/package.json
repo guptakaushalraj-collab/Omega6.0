@@ -1,0 +1,15 @@
+{
+  "name": "@omega6/worker-dashboard",
+  "version": "3.1.0",
+  "type": "module",
+  "description": "Field workforce and assignment management (acquired: FieldOps Crew)",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  }
+}

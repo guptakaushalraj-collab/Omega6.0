@@ -1,0 +1,45 @@
+{
+  "report": {
+    "id": "bin_534faeb174b4",
+    "location": {
+      "lat": 12.972,
+      "lng": 77.595
+    },
+    "address": "MG Road bus stop",
+    "notes": null,
+    "reporter_name": "Asha",
+    "photo_url": "/uploads/1787321082713-96f0e946.png",
+    "waste_type": "mixed",
+    "classification": {
+      "type": "mixed",
+      "label": "Mixed",
+      "color": "#78716c",
+      "recyclable": false,
+      "hazardous": false,
+      "confidence": 0.73,
+      "alternatives": [
+        {
+          "type": "organic",
+          "label": "Organic",
+          "confidence": 0.33
+        },
+        {
+          "type": "metal",
+          "label": "Metal",
+          "confidence": 0.22
+        }
+      ],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "status": "assigned",
+    "assignment": {
+      "assignment_id": "asg_d142a91aeaa6",
+      "worker_id": "wrk_08278df98e7c",
+      "worker_name": "Ravi Singh",
+      "distance_km": 0.43
+    },
+    "reported_at": "2026-08-21T14:04:42.714Z",
+    "cleared_at": null
+  },
+  "degraded": null
+}

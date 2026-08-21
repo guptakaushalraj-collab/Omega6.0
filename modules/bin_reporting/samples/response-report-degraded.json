@@ -1,0 +1,22 @@
+{
+  "report": {
+    "id": "bin_4eb7e99fceab",
+    "location": {
+      "lat": 12.9,
+      "lng": 77.6
+    },
+    "address": "Cubbon Park gate",
+    "notes": null,
+    "reporter_name": "Anonymous",
+    "photo_url": null,
+    "waste_type": null,
+    "classification": null,
+    "status": "reported",
+    "assignment": null,
+    "reported_at": "2026-08-21T14:04:42.741Z",
+    "cleared_at": null
+  },
+  "degraded": {
+    "classification": "no_photo_supplied"
+  }
+}

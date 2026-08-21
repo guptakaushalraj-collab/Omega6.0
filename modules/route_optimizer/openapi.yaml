@@ -1,0 +1,139 @@
+openapi: 3.0.3
+info:
+  title: Route Optimizer
+  version: 1.0.0
+  description: Sequences collection stops into a short route; computes distance matrices.
+  license:
+    name: MIT
+servers:
+  - url: http://localhost:4103
+    description: Local
+paths:
+  /api/v1/health:
+    get:
+      summary: Liveness probe
+      responses:
+        "200": { description: Service is up }
+  /api/v1/optimize:
+    post:
+      summary: Sequence stops into a short route
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [start, stops]
+              properties:
+                start: { $ref: "#/components/schemas/Point" }
+                stops:
+                  type: array
+                  maxItems: 200
+                  items: { $ref: "#/components/schemas/Stop" }
+                refine:
+                  type: boolean
+                  default: true
+                  description: Run the 2-opt refinement pass
+      responses:
+        "200":
+          description: Sequenced route
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Route" }
+        "400": { description: Malformed start or stops }
+        "413": { description: Over the 200-stop limit }
+  /api/v1/distance-matrix:
+    post:
+      summary: All-pairs distance matrix
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [points]
+              properties:
+                points:
+                  type: array
+                  maxItems: 200
+                  items: { $ref: "#/components/schemas/Point" }
+      responses:
+        "200":
+          description: Symmetric distance matrix in km
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  unit: { type: string, example: km }
+                  points: { type: integer }
+                  matrix:
+                    type: array
+                    items:
+                      type: array
+                      items: { type: number, format: float }
+        "400": { description: Malformed points }
+        "413": { description: Over the 200-point limit }
+  /api/v1/distance:
+    post:
+      summary: Distance between two points
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [from, to]
+              properties:
+                from: { $ref: "#/components/schemas/Point" }
+                to: { $ref: "#/components/schemas/Point" }
+      responses:
+        "200":
+          description: Great-circle distance
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  unit: { type: string, example: km }
+                  distance_km: { type: number, format: float }
+        "400": { description: Malformed from or to }
+components:
+  schemas:
+    Point:
+      type: object
+      required: [lat, lng]
+      properties:
+        lat: { type: number, format: double, minimum: -90, maximum: 90 }
+        lng: { type: number, format: double, minimum: -180, maximum: 180 }
+    Stop:
+      type: object
+      required: [location]
+      description: >
+        Only `location` is required. Any additional properties are passed
+        through unchanged onto the corresponding sequenced stop.
+      properties:
+        id: { type: string }
+        location: { $ref: "#/components/schemas/Point" }
+      additionalProperties: true
+    SequencedStop:
+      allOf:
+        - $ref: "#/components/schemas/Stop"
+        - type: object
+          properties:
+            sequence: { type: integer, minimum: 1 }
+            leg_distance_km: { type: number, format: float }
+            cumulative_distance_km: { type: number, format: float }
+    Route:
+      type: object
+      properties:
+        stops:
+          type: array
+          items: { $ref: "#/components/schemas/SequencedStop" }
+        total_distance_km: { type: number, format: float }
+        strategy: { type: string, example: "nearest-neighbor + 2-opt" }
+        two_opt_passes: { type: integer }
+        improvement_km:
+          type: number
+          format: float
+          description: Distance saved by 2-opt versus the greedy tour

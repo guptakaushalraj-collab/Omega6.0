@@ -1,0 +1,15 @@
+{
+  "name": "@omega6/analytics-dashboard",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Event ingestion and operational metrics for the waste network",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  }
+}

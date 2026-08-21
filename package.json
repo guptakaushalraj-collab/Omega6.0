@@ -1,0 +1,12 @@
+{
+  "name": "omega6-waste-network",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Intelligent Waste Collection Network — integrated app plus six independently tradable modules",
+  "scripts": {
+    "install:modules": "node scripts/modules.js install",
+    "modules:start": "node scripts/modules.js start",
+    "modules:test": "node scripts/integration-test.js"
+  }
+}

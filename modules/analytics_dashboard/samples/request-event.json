@@ -1,0 +1,9 @@
+{
+  "type": "bin.collected",
+  "subject_id": "bin_534faeb174b4",
+  "source": "worker_dashboard",
+  "payload": {
+    "worker_id": "wrk_08278df98e7c",
+    "waste_type": "mixed"
+  }
+}

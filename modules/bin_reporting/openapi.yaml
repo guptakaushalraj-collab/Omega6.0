@@ -1,0 +1,196 @@
+openapi: 3.0.3
+info:
+  title: Bin Reporting
+  version: 1.0.0
+  description: >
+    Citizen-facing intake for overflowing bins. Persists the report before
+    calling any dependency, then layers classification and dispatch on as
+    independently degradable enrichments.
+  license:
+    name: MIT
+servers:
+  - url: http://localhost:4101
+    description: Local
+paths:
+  /api/v1/health:
+    get:
+      summary: Liveness probe and dependency config
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  module: { type: string }
+                  version: { type: string }
+                  dependencies:
+                    type: object
+                    properties:
+                      waste_recognition: { type: string, nullable: true }
+                      worker_dashboard: { type: string, nullable: true }
+                      analytics_dashboard: { type: string, nullable: true }
+                      timeout_ms: { type: integer }
+  /api/v1/reports:
+    post:
+      summary: Report an overflowing bin
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [lat, lng]
+              properties:
+                photo: { type: string, format: binary }
+                lat: { type: number }
+                lng: { type: number }
+                address: { type: string }
+                notes: { type: string }
+                reporter_name: { type: string }
+                auto_assign: { type: boolean, default: true }
+          application/json:
+            schema:
+              type: object
+              required: [lat, lng]
+              properties:
+                lat: { type: number }
+                lng: { type: number }
+                address: { type: string }
+                notes: { type: string }
+                reporter_name: { type: string }
+                auto_assign: { type: boolean, default: true }
+      responses:
+        "201":
+          description: Report accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  report: { $ref: "#/components/schemas/Report" }
+                  degraded:
+                    $ref: "#/components/schemas/Degraded"
+        "400": { description: Invalid coordinates }
+        "413": { description: Photo exceeds 8 MB }
+    get:
+      summary: List reports
+      parameters:
+        - { in: query, name: status, schema: { type: string, enum: [reported, assigned, in_progress, cleared] } }
+        - { in: query, name: waste_type, schema: { type: string } }
+        - { in: query, name: limit, schema: { type: integer, default: 100, maximum: 500 } }
+      responses:
+        "200":
+          description: Report list envelope
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  count: { type: integer }
+                  reports:
+                    type: array
+                    items: { $ref: "#/components/schemas/Report" }
+  /api/v1/reports/{id}:
+    get:
+      summary: Fetch one report
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Report" }
+        "404": { description: Not found }
+  /api/v1/reports/{id}/reclassify:
+    post:
+      summary: Backfill a classification skipped at intake
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Reclassified report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Report" }
+        "404": { description: Report not found }
+        "410": { description: Stored photo no longer available }
+        "422": { description: Report has no photo }
+        "503": { description: Classifier still unavailable }
+  /api/v1/reports/{id}/status:
+    patch:
+      summary: Update lifecycle status
+      parameters:
+        - { in: path, name: id, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [reported, assigned, in_progress, cleared] }
+      responses:
+        "200":
+          description: Updated report
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Report" }
+        "404": { description: Not found }
+        "422": { description: Invalid status }
+components:
+  schemas:
+    Point:
+      type: object
+      required: [lat, lng]
+      properties:
+        lat: { type: number, format: double }
+        lng: { type: number, format: double }
+    Classification:
+      type: object
+      nullable: true
+      properties:
+        type: { type: string }
+        label: { type: string }
+        color: { type: string }
+        recyclable: { type: boolean }
+        hazardous: { type: boolean }
+        confidence: { type: number, format: float }
+        model_version: { type: string }
+    Assignment:
+      type: object
+      nullable: true
+      properties:
+        assignment_id: { type: string }
+        worker_id: { type: string }
+        worker_name: { type: string }
+        distance_km: { type: number, format: float }
+    Report:
+      type: object
+      properties:
+        id: { type: string }
+        location: { $ref: "#/components/schemas/Point" }
+        address: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+        reporter_name: { type: string }
+        photo_url: { type: string, nullable: true }
+        waste_type: { type: string, nullable: true }
+        classification: { $ref: "#/components/schemas/Classification" }
+        status: { type: string, enum: [reported, assigned, in_progress, cleared] }
+        assignment: { $ref: "#/components/schemas/Assignment" }
+        reported_at: { type: string, format: date-time }
+        cleared_at: { type: string, format: date-time, nullable: true }
+    Degraded:
+      type: object
+      nullable: true
+      description: >
+        null when intake fully succeeded. Otherwise names each skipped
+        enrichment and why. Reasons: not_configured, unreachable, timeout,
+        upstream_<status>, no_photo_supplied, no_workers_available.
+      properties:
+        classification: { type: string }
+        assignment: { type: string }

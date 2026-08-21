@@ -1,0 +1,9 @@
+{
+  "_comment": "JSON intake variant. For the multipart form (with photo) see request-report.md.",
+  "lat": 12.972,
+  "lng": 77.595,
+  "address": "MG Road bus stop",
+  "notes": "Overflowing since yesterday",
+  "reporter_name": "Asha",
+  "auto_assign": true
+}

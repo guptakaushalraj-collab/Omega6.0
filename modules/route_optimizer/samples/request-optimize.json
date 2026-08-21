@@ -1,0 +1,33 @@
+{
+  "start": {
+    "lat": 12.9716,
+    "lng": 77.5946
+  },
+  "stops": [
+    {
+      "id": "bin_a",
+      "waste_type": "plastic",
+      "location": {
+        "lat": 12.9784,
+        "lng": 77.6408
+      }
+    },
+    {
+      "id": "bin_b",
+      "waste_type": "organic",
+      "location": {
+        "lat": 12.9611,
+        "lng": 77.6387
+      }
+    },
+    {
+      "id": "bin_c",
+      "waste_type": "paper",
+      "location": {
+        "lat": 12.9899,
+        "lng": 77.5731
+      }
+    }
+  ],
+  "refine": true
+}

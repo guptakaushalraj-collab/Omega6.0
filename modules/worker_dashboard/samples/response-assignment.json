@@ -1,0 +1,23 @@
+{
+  "id": "asg_d142a91aeaa6",
+  "job_ref": "bin_534faeb174b4",
+  "worker_id": "wrk_08278df98e7c",
+  "worker_name": "Ravi Singh",
+  "location": {
+    "lat": 12.972,
+    "lng": 77.595
+  },
+  "metadata": {
+    "waste_type": "mixed"
+  },
+  "distance_km": 0.43,
+  "status": "completed",
+  "assigned_at": "2026-08-21T14:04:42.722Z",
+  "started_at": null,
+  "completed_at": "2026-08-21T14:04:42.760Z",
+  "side_effects": {
+    "citizen_notification": "sent",
+    "admin_notification": "sent",
+    "analytics": "recorded"
+  }
+}

@@ -1,0 +1,51 @@
+[
+  {
+    "type": "plastic",
+    "label": "Plastic",
+    "color": "#2563eb",
+    "recyclable": true,
+    "hazardous": false
+  },
+  {
+    "type": "organic",
+    "label": "Organic",
+    "color": "#16a34a",
+    "recyclable": false,
+    "hazardous": false
+  },
+  {
+    "type": "paper",
+    "label": "Paper",
+    "color": "#ca8a04",
+    "recyclable": true,
+    "hazardous": false
+  },
+  {
+    "type": "metal",
+    "label": "Metal",
+    "color": "#64748b",
+    "recyclable": true,
+    "hazardous": false
+  },
+  {
+    "type": "glass",
+    "label": "Glass",
+    "color": "#0d9488",
+    "recyclable": true,
+    "hazardous": false
+  },
+  {
+    "type": "e-waste",
+    "label": "E-Waste",
+    "color": "#7c3aed",
+    "recyclable": true,
+    "hazardous": true
+  },
+  {
+    "type": "mixed",
+    "label": "Mixed",
+    "color": "#78716c",
+    "recyclable": false,
+    "hazardous": false
+  }
+]

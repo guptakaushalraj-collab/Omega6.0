@@ -1,0 +1,49 @@
+{
+  "module": "route_optimizer",
+  "version": "1.0.0",
+  "title": "Route Optimizer",
+  "summary": "Sequences collection stops into a short round trip and computes distance matrices.",
+  "provenance": {
+    "origin": "in-house",
+    "owner": "Omega6.0 Waste Network",
+    "license": "MIT",
+    "transferable": true
+  },
+  "trade": {
+    "status": "available",
+    "notes": "Pure computation — no datastore, no outbound calls, no persistent state. Horizontally scalable behind any load balancer.",
+    "pricing": {
+      "model": "per-request",
+      "currency": "USD",
+      "per_1k_requests": 2.5,
+      "free_tier_requests": 5000
+    },
+    "sla": {
+      "uptime": "99.9%",
+      "p95_latency_ms": 60
+    }
+  },
+  "interface": {
+    "protocol": "REST/HTTP",
+    "base_path": "/api/v1",
+    "default_port": 4103,
+    "auth": "none",
+    "openapi": "./openapi.yaml"
+  },
+  "provides": [
+    "route.optimize",
+    "geo.distance_matrix"
+  ],
+  "requires": [],
+  "owns_data": [],
+  "limits": {
+    "max_stops_per_request": 200,
+    "max_points_per_matrix": 200
+  },
+  "endpoints": [
+    { "method": "POST", "path": "/api/v1/optimize", "summary": "Sequence stops into a short route" },
+    { "method": "POST", "path": "/api/v1/distance-matrix", "summary": "All-pairs distance matrix" },
+    { "method": "POST", "path": "/api/v1/distance", "summary": "Distance between two points" },
+    { "method": "GET", "path": "/api/v1/health", "summary": "Liveness probe" }
+  ]
+}
