@@ -69,6 +69,12 @@ The workflow runs the full sequence one visible step at a time —
 updateAnalytics` — printing each call, result and timing. See
 [`modules/README.md`](./modules/README.md#end-to-end-workflow).
 
+## Reference
+
+[`docs/SYSTEM-REFERENCE.md`](./docs/SYSTEM-REFERENCE.md) — annotated folder
+tree, all 41 endpoints with sample JSON captured from live responses,
+integration pseudocode, and an end-to-end summary of the system.
+
 ## Trading position
 
 Three modules are being divested and two purchased components retained — see
