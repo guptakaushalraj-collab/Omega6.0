@@ -1,0 +1,24 @@
+[
+  { "name": "typical_round",
+    "description": "Six central Bengaluru stops — a normal morning round.",
+    "request": { "start": { "lat": 12.9716, "lng": 77.5946 },
+      "stops": [
+        { "id": "bin_a", "location": { "lat": 12.9752, "lng": 77.6068 } },
+        { "id": "bin_b", "location": { "lat": 12.9719, "lng": 77.6412 } },
+        { "id": "bin_c", "location": { "lat": 12.9345, "lng": 77.6266 } },
+        { "id": "bin_d", "location": { "lat": 12.9250, "lng": 77.5838 } },
+        { "id": "bin_e", "location": { "lat": 13.0055, "lng": 77.5692 } },
+        { "id": "bin_f", "location": { "lat": 12.9910, "lng": 77.5550 } } ] } },
+  { "name": "crossing_path",
+    "description": "Ordered so greedy nearest-neighbour self-crosses — 2-opt should report a non-zero improvement_km.",
+    "request": { "start": { "lat": 12.9716, "lng": 77.5946 },
+      "stops": [
+        { "id": "bin_x1", "location": { "lat": 12.9910, "lng": 77.5550 } },
+        { "id": "bin_x2", "location": { "lat": 12.9250, "lng": 77.5838 } },
+        { "id": "bin_x3", "location": { "lat": 13.0055, "lng": 77.5692 } },
+        { "id": "bin_x4", "location": { "lat": 12.9422, "lng": 77.5760 } },
+        { "id": "bin_x5", "location": { "lat": 13.0234, "lng": 77.5540 } } ] } },
+  { "name": "empty",
+    "description": "No stops — must return an empty route, NOT an error.",
+    "request": { "start": { "lat": 12.9716, "lng": 77.5946 }, "stops": [] } }
+]

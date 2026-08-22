@@ -1,0 +1,14 @@
+[
+  { "type": "bin.reported",     "subject_id": "bin_90b813b2c556", "source": "bin_reporting",
+    "payload": { "has_photo": true },  "occurred_at": "2026-08-21T09:14:02Z" },
+  { "type": "bin.classified",   "subject_id": "bin_90b813b2c556", "source": "bin_reporting",
+    "payload": { "waste_type": "plastic" }, "occurred_at": "2026-08-21T09:14:03Z" },
+  { "type": "bin.assigned",     "subject_id": "bin_90b813b2c556", "source": "worker_dashboard",
+    "payload": { "worker_id": "wrk_a1b2c3d4e5f6", "distance_km": 0.06 }, "occurred_at": "2026-08-21T09:15:10Z" },
+  { "type": "notification.sent","subject_id": "bin_90b813b2c556", "source": "worker_dashboard",
+    "payload": { "recipient_type": "worker", "trigger": "assigned" }, "occurred_at": "2026-08-21T09:15:11Z" },
+  { "type": "route.optimized",  "subject_id": "wrk_a1b2c3d4e5f6", "source": "worker_dashboard",
+    "payload": { "stop_count": 1 }, "occurred_at": "2026-08-21T09:20:00Z" },
+  { "type": "bin.collected",    "subject_id": "bin_90b813b2c556", "source": "worker_dashboard",
+    "payload": { "worker_id": "wrk_a1b2c3d4e5f6" }, "occurred_at": "2026-08-21T10:41:55Z" }
+]

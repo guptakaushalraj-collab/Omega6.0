@@ -1,0 +1,17 @@
+[
+  {
+    "id": "cls_3b9d1f7a2e46",
+    "reference": "bin_90b813b2c556",
+    "prediction": {
+      "type": "plastic", "label": "Plastic", "color": "#2563eb",
+      "recyclable": true, "hazardous": false, "confidence": 0.71,
+      "alternatives": [
+        { "type": "organic", "label": "Organic", "confidence": 0.32 },
+        { "type": "glass", "label": "Glass", "confidence": 0.21 }
+      ],
+      "model_version": "stub-cv-1.0.0"
+    },
+    "image_bytes": 48213,
+    "classified_at": "2026-08-21T09:14:03Z"
+  }
+]

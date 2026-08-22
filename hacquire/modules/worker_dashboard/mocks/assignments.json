@@ -1,0 +1,8 @@
+[
+  { "id": "asg_7c1e9b4d2a80", "job_ref": "bin_90b813b2c556",
+    "worker_id": "wrk_a1b2c3d4e5f6", "worker_name": "Asha Kumar",
+    "location": { "lat": 12.972, "lng": 77.595 },
+    "metadata": { "waste_type": "plastic" }, "distance_km": 0.06,
+    "status": "completed", "assigned_at": "2026-08-21T09:15:10Z",
+    "started_at": "2026-08-21T09:52:00Z", "completed_at": "2026-08-21T10:41:55Z" }
+]

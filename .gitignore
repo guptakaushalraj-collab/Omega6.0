@@ -21,3 +21,11 @@ modules/*/uploads/*
 .env
 .env.local
 !.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+hacquire/modules/*/app/data/
+hacquire/modules/*/app/uploads/
