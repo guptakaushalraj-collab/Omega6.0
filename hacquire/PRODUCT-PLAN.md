@@ -12,54 +12,91 @@ before being written down. Nothing here is illustrative-only.
 ## 1. Full Folder Tree & Code Scaffolding
 
 ```
-hacquire/
-├── modules/                                SIX TRADABLE SERVICES
-│   │                                       No shared code. No shared database.
-│   │                                       Each directory runs on its own.
-│   │
-│   ├── bin_reporting/                      :8001  HELD — the entry point
-│   │   ├── app/
-│   │   │   ├── main.py                     Intake + lifecycle + flat aliases
-│   │   │   ├── clients.py                  Outbound: env-resolved, timeout-bounded,
-│   │   │   │                               never raises — returns {ok, reason}
-│   │   │   ├── store.py                    Vendored JSON store (module-local)
-│   │   │   └── data/store.json             Runtime state (gitignored)
-│   │   ├── mocks/reports.json              Seed fixtures
-│   │   ├── requirements.txt
-│   │   └── .env.example
-│   │
-│   ├── waste_recognition/                  :8002  SOLD — $42,000
-│   │   └── app/main.py                     classify() is the MODEL BOUNDARY —
-│   │                                       swap the body for real inference,
-│   │                                       keep the return shape, no consumer
-│   │                                       changes
-│   │
-│   ├── route_optimizer/                    :8003  SOLD — $28,000
-│   │   └── app/main.py                     Nearest-neighbour + 2-opt.
-│   │                                       Stateless: no store, no deps
-│   │
-│   ├── analytics_dashboard/                :8004  SOLD — $35,000
-│   │   └── app/main.py                     Push-based. Derives everything from
-│   │                                       events it is SENT; never queries
-│   │                                       another module
-│   │
-│   ├── notification_system/                :8005  BOUGHT — SignalPost Relay 2.4.1
-│   │   └── app/main.py                     /v1 · X-API-Key · snake_case ·
-│   │                                       {"error":{"code","message"}}
-│   │                                       Vendor conventions RETAINED
-│   │
-│   └── worker_dashboard/                   :8006  BOUGHT — FieldOps Crew 3.1.0
-│       └── app/
-│           ├── main.py                     /v1 · Bearer · {"error","detail"}
-│           │                               job_ref, not bin_id — domain-neutral
-│           └── clients.py                  Carries the adaptation for the OTHER
-│                                           acquired module, at the call site
+hacquire/                                   PROJECT ROOT
 │
-├── scripts/run_mesh.py                     Boot all six, dependencies pre-wired
+├── main.py                                 Launcher. Boots the six as SEPARATE
+│                                           PROCESSES and injects each one's
+│                                           dependency URLs. A convenience,
+│                                           never a dependency — no module
+│                                           imports it.
+│
+├── requirements.txt                        One dependency set for the network.
+│                                           Each module also names its own
+│                                           subset in its docstring header.
+│
+├── .env.example                            Every knob: ports, credentials,
+│                                           dependency URLs, timeouts. Copy to
+│                                           .env. All values have working
+│                                           defaults — it runs with no .env.
+│
+├── modules/                                SIX TRADABLE SERVICES
+│   │                                       ONE MODULE IS ONE FILE. Datastore,
+│   │                                       outbound adapters and HTTP surface
+│   │                                       all inside it. No shared code, no
+│   │                                       shared database, zero cross-module
+│   │                                       imports — verified.
+│   │
+│   ├── bin_reporting/
+│   │   ├── bin_reporting.py                :8001  HELD — the entry point.
+│   │   │                                   Intake + lifecycle + flat aliases.
+│   │   │                                   Persist-then-enrich; outbound calls
+│   │   │                                   are env-resolved, timeout-bounded
+│   │   │                                   and never raise — {ok, reason}.
+│   │   ├── mocks/reports.json              Seed fixtures
+│   │   ├── data/store.json                 Runtime state (gitignored)
+│   │   └── uploads/                        Submitted photos (gitignored)
+│   │
+│   ├── waste_recognition/
+│   │   ├── waste_recognition.py            :8002  SOLD — $42,000
+│   │   │                                   classify() is the MODEL BOUNDARY —
+│   │   │                                   swap the body for real inference,
+│   │   │                                   keep the return shape, no consumer
+│   │   │                                   changes. Zero outbound deps.
+│   │   └── mocks/classifications.json
+│   │
+│   ├── route_optimizer/
+│   │   ├── route_optimizer.py              :8003  SOLD — $28,000
+│   │   │                                   Nearest-neighbour + 2-opt.
+│   │   │                                   Stateless: no store, no deps, so it
+│   │   │                                   scales horizontally for free.
+│   │   └── mocks/scenarios.json
+│   │
+│   ├── analytics_dashboard/
+│   │   ├── analytics_dashboard.py          :8004  SOLD — $35,000
+│   │   │                                   Push-based. Derives everything from
+│   │   │                                   events it is SENT; never queries
+│   │   │                                   another module.
+│   │   └── mocks/events.json
+│   │
+│   ├── notification_system/
+│   │   ├── notification_system.py          :8005  BOUGHT — SignalPost Relay 2.4.1
+│   │   │                                   /v1 · X-API-Key · snake_case ·
+│   │   │                                   {"error":{"code","message"}}
+│   │   │                                   Vendor conventions RETAINED.
+│   │   └── mocks/messages.json
+│   │
+│   └── worker_dashboard/
+│       ├── worker_dashboard.py             :8006  BOUGHT — FieldOps Crew 3.1.0
+│       │                                   /v1 · Bearer · {"error","detail"}
+│       │                                   job_ref, not bin_id — domain-neutral.
+│       │                                   Its adapter block carries the
+│       │                                   translation for the OTHER acquired
+│       │                                   module, at the call site.
+│       └── mocks/{workers,assignments}.json
+│
+├── README.md                               Run instructions + design rules
 └── PRODUCT-PLAN.md                         This document
 ```
 
-### Starter code — the model boundary (`waste_recognition/app/main.py`)
+**Why one file per module.** Directory-per-module with its own package, its own
+`requirements.txt` and its own `.env` is the textbook shape, but it makes a
+handover a repository migration. Collapsed to a single file, a sale is a file
+copy: `route_optimizer.py` lifted alone into an empty directory outside this
+repo answered `GET /optimizeRoute` correctly with nothing else present. The
+per-module dependency list survives as a docstring header, so a buyer still
+knows exactly what to `pip install`.
+
+### Starter code — the model boundary (`modules/waste_recognition/waste_recognition.py`)
 
 ```python
 TAXONOMY = [
@@ -94,7 +131,7 @@ def classify(image: bytes) -> dict:
             "alternatives": alternatives, "model_version": MODEL_VERSION}
 ```
 
-### Starter code — persist-then-enrich (`bin_reporting/app/main.py`)
+### Starter code — persist-then-enrich (`modules/bin_reporting/bin_reporting.py`)
 
 ```python
 async def create_report(location, *, photo_filename=None, auto_assign=True, **meta):
@@ -133,7 +170,7 @@ async def create_report(location, *, photo_filename=None, auto_assign=True, **me
     return {"report": report, "degraded": degraded or None}
 ```
 
-### Starter code — the degradation contract (`clients.py`, both consumers)
+### Starter code — the degradation contract (adapter block, both consumers)
 
 ```python
 async def _request(method: str, url: str, **kw) -> dict:
@@ -154,26 +191,49 @@ async def _request(method: str, url: str, **kw) -> dict:
         return {"ok": False, "reason": "unreachable"}
 ```
 
-### `.env.example` (abridged — every module ships its own)
+### `.env.example` (abridged — one file, at the project root)
 
 ```bash
-# bin_reporting — HELD
-PORT=8001
-# OPTIONAL DEPENDENCIES. With none set this is a self-contained intake log —
-# the minimum a buyer gets with no other purchase.
-WASTE_RECOGNITION_URL=http://localhost:8002   # absent → stored unclassified
-WORKER_DASHBOARD_URL=http://localhost:8006    # absent → stays "reported"
-ANALYTICS_URL=http://localhost:8004           # absent → metrics lose a point
-CREW_AUTH_TOKEN=dev-fieldops-token
-DEPENDENCY_TIMEOUT_MS=2500                    # bounds INTAKE latency
+# ---- topology -------------------------------------------------------------
+SERVICE_HOST=localhost          # how the modules address EACH OTHER
+BIN_REPORTING_PORT=8001
+WASTE_RECOGNITION_PORT=8002
+ROUTE_OPTIMIZER_PORT=8003
+ANALYTICS_DASHBOARD_PORT=8004
+NOTIFICATION_SYSTEM_PORT=8005
+WORKER_DASHBOARD_PORT=8006
 
-# notification_system — BOUGHT
-NOTIFY_API_KEY=dev-signalpost-key
-# SECURITY: public knowledge — it is the fallback in app/main.py. Change before
-# exposing, and update every caller.
-# NOT INCLUDED IN THE ACQUISITION: sms/email/push queue but never send.
-# SIGNALPOST_GATEWAY_KEY=   ← not read by this build
+# ---- credentials ----------------------------------------------------------
+# SECURITY: both defaults are PUBLIC KNOWLEDGE — they are the fallbacks baked
+# into the module source so a fresh clone runs. Change before exposing
+# anything beyond localhost.
+NOTIFY_API_KEY=dev-signalpost-key     # X-API-Key  (notification_system)
+CREW_AUTH_TOKEN=dev-fieldops-token    # Bearer     (worker_dashboard)
+
+# ---- dependencies ---------------------------------------------------------
+# Each module consumes CAPABILITIES, never named modules, and reaches them at
+# a URL. Unset → main.py points at the local process. Set one → that module is
+# repointed. This single indirection is what lets a SOLD module keep serving
+# us from the buyer's infrastructure with no code change on either side.
+# WASTE_RECOGNITION_URL=https://classify.buyer-hosted.example
+# ROUTE_OPTIMIZER_URL=https://routing.buyer-hosted.example
+# ANALYTICS_DASHBOARD_URL=https://metrics.buyer-hosted.example
+
+DEPENDENCY_TIMEOUT_MS=2500      # bounds citizen-facing INTAKE latency
+
+# ---- retention ------------------------------------------------------------
+MAX_EVENTS=20000                # analytics_dashboard, oldest-first eviction
+MAX_MESSAGES=10000              # notification_system
+
+# NOT INCLUDED IN THE ACQUISITION: notification_system delivers in_app only.
+# sms/email/push queue but never send — the gateway credentials were not part
+# of the asset purchase.
+# SIGNALPOST_GATEWAY_KEY=       ← not read by this build
 ```
+
+`main.py` reads this file only for keys **not already in the environment**, so
+an exported value or a container platform's injection always wins over a
+checked-in default.
 
 ### Mock datasets
 
@@ -206,9 +266,9 @@ an error.
 
 ```bash
 pip install fastapi uvicorn pydantic httpx python-multipart
-python hacquire/scripts/run_mesh.py           # all six, dependencies wired
+python hacquire/main.py                       # all six, dependencies wired
 # or standalone:
-cd hacquire/modules/waste_recognition && uvicorn app.main:app --port 8002
+cd hacquire/modules/waste_recognition && uvicorn waste_recognition:app --port 8002
 ```
 
 ---
@@ -362,8 +422,18 @@ Also: `POST /v1/messages` · `GET /v1/messages` · `POST /v1/messages/{id}/ack` 
 Degraded (optimizer down) — a useful answer, not an error:
 
 ```json
-{ "optimized": false, "degraded_reason": "unreachable",
-  "total_distance_km": null, "stops": [ … unordered … ] }
+{
+  "worker_id": "wrk_b64a09d86f26", "worker_name": "Asha Kumar",
+  "optimized": false,
+  "degraded_reason": "unreachable",
+  "total_distance_km": null,
+  "stops": [
+    { "assignment_id": "asg_c0a1edd83de2", "job_ref": "bin_547d42fce718",
+      "location": { "lat": 12.972, "lng": 77.595 }, "metadata": {} },
+    { "assignment_id": "asg_9232babf5ec5", "job_ref": "bin_a9f5f5a4cb8d",
+      "location": { "lat": 12.955, "lng": 77.62 },  "metadata": {} }
+  ]
+}
 ```
 
 `POST /v1/assignments` returns the assignment plus a `side_effects` block
@@ -574,7 +644,7 @@ production hardening; counterparty negotiation.
 - **Resilience:** stop `route_optimizer` and step 4 returns `UNORDERED` with a
   reason, step 5 drops its "stop N of M" phrasing, the run still completes.
   Degradation is designed, not accidental.
-- **Run it yourself:** `python hacquire/scripts/run_mesh.py`
+- **Run it yourself:** `python hacquire/main.py`
 
 ---
 

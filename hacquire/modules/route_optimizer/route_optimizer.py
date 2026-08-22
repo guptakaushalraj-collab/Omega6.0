@@ -2,10 +2,16 @@
 
 Sequences collection stops into a short round and computes distance matrices.
 
-Pure computation: no datastore, no outbound dependencies, no coordination
-between replicas. Scales horizontally for free, which is why it is worth more
-to an operator with real routing volume than to us.
+SELF-CONTAINED BY DESIGN. This single file is the whole module. Pure
+computation: no datastore, no outbound dependencies, no coordination between
+replicas. Scales horizontally for free, which is why it is worth more to an
+operator with real routing volume than to us.
+
+Run standalone:      uvicorn route_optimizer:app --port 8003
+Needs:               fastapi  uvicorn  pydantic
+Env:                 PORT (default 8003)
 """
+import json as _json
 import math
 import os
 from typing import Any, Optional
@@ -177,7 +183,6 @@ def optimize_route_alias(
     "bin_1fab6e" to a location. Doing so would require calling bin_reporting
     and forfeit that property.
     """
-    import json as _json
     try:
         parsed = _json.loads(bins)
     except _json.JSONDecodeError:

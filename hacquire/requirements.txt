@@ -1,0 +1,23 @@
+# Intelligent Waste Collection Network — HACQUIRE 2026
+#
+# One file for the whole network. Each module also names the subset it needs
+# in its own docstring header, so a buyer lifting a single file knows exactly
+# what to install:
+#
+#   bin_reporting        fastapi uvicorn pydantic httpx python-multipart
+#   waste_recognition    fastapi uvicorn pydantic python-multipart
+#   route_optimizer      fastapi uvicorn pydantic
+#   analytics_dashboard  fastapi uvicorn pydantic
+#   notification_system  fastapi uvicorn pydantic
+#   worker_dashboard     fastapi uvicorn pydantic httpx
+
+fastapi>=0.115
+uvicorn[standard]>=0.30
+pydantic>=2.7
+
+# Outbound HTTP between modules. Only bin_reporting and worker_dashboard call
+# out; the other four are leaves.
+httpx>=0.27
+
+# Multipart form parsing for photo uploads (bin_reporting, waste_recognition).
+python-multipart>=0.0.9

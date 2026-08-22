@@ -2,23 +2,80 @@
 
 Ingests operational events and derives collection metrics.
 
+SELF-CONTAINED BY DESIGN. This single file is the whole module: datastore,
+metric derivation and HTTP surface, importing nothing from a sibling.
+
 PUSH-BASED BY DESIGN: it derives everything from events it is sent and never
 queries another module's API or reads another module's disk. That inversion is
 what makes it independently ownable — an operator running an entirely
 different stack adopts it by emitting six documented event shapes.
+
+Run standalone:      uvicorn analytics_dashboard:app --port 8004
+Needs:               fastapi  uvicorn  pydantic
+Env:                 PORT (default 8004), MAX_EVENTS
 """
+import json
 import os
+import secrets
+import threading
 from collections import Counter
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any, Optional
 
 from fastapi import FastAPI
 from pydantic import BaseModel, Field
 
-from .store import Store
-
 APP_VERSION = "1.0.0"
 MAX_EVENTS = int(os.getenv("MAX_EVENTS", 20000))
+
+
+# ---------------------------------------------------------------------------
+# VENDORED DATASTORE
+#
+# This class is COPIED into every module that needs it, never imported across
+# module boundaries. ~40 duplicated lines is the deliberate price of being able
+# to hand a buyer this single file and have it run with no shared package to
+# untangle. Swap the body for a real database client; no route changes.
+# ---------------------------------------------------------------------------
+class Store:
+    def __init__(self, empty: dict, filename: str = "store.json"):
+        self._empty = empty
+        self._path = Path(__file__).resolve().parent / "data" / filename
+        self._lock = threading.Lock()
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        if not self._path.exists():
+            self._write_unlocked(empty)
+
+    def _write_unlocked(self, data: dict) -> None:
+        # Write-then-rename: a crash mid-write leaves the previous file intact
+        # rather than a truncated one.
+        tmp = self._path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, indent=2))
+        tmp.replace(self._path)
+
+    def read(self) -> dict:
+        with self._lock:
+            try:
+                return json.loads(self._path.read_text())
+            except (FileNotFoundError, json.JSONDecodeError):
+                return json.loads(json.dumps(self._empty))
+
+    def write(self, data: dict) -> None:
+        with self._lock:
+            self._write_unlocked(data)
+
+    def reset(self) -> None:
+        self.write(json.loads(json.dumps(self._empty)))
+
+    @staticmethod
+    def new_id(prefix: str) -> str:
+        return f"{prefix}_{secrets.token_hex(6)}"
+
+    @staticmethod
+    def now() -> str:
+        return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
 
 app = FastAPI(title="analytics_dashboard", version=APP_VERSION)
 store = Store({"events": []})

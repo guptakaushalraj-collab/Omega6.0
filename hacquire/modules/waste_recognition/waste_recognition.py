@@ -2,24 +2,80 @@
 
 Classifies waste type from a bin photograph.
 
-Stateless apart from a capped audit log, and with zero outbound dependencies,
-which is what makes it the cleanest asset in the registry to divest: a buyer
-needs only a host and a model.
+SELF-CONTAINED BY DESIGN. This single file is the whole module: taxonomy,
+datastore, model boundary and HTTP surface. It imports nothing from a sibling
+module and has zero outbound dependencies, which is what makes it the cleanest
+asset in the registry to divest — a buyer needs only a host and a model.
+
+Run standalone:      uvicorn waste_recognition:app --port 8002
+Needs:               fastapi  uvicorn  pydantic  python-multipart
+Env:                 PORT (default 8002)
 """
 import base64
 import hashlib
+import json
 import os
+import secrets
+import threading
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
-from .store import Store
-
 APP_VERSION = "1.0.0"
 MODEL_VERSION = "stub-cv-1.0.0"
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 AUDIT_CAP = 500
+
+
+# ---------------------------------------------------------------------------
+# VENDORED DATASTORE
+#
+# This class is COPIED into every module that needs it, never imported across
+# module boundaries. ~40 duplicated lines is the deliberate price of being able
+# to hand a buyer this single file and have it run with no shared package to
+# untangle. Swap the body for a real database client; no route changes.
+# ---------------------------------------------------------------------------
+class Store:
+    def __init__(self, empty: dict, filename: str = "store.json"):
+        self._empty = empty
+        self._path = Path(__file__).resolve().parent / "data" / filename
+        self._lock = threading.Lock()
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        if not self._path.exists():
+            self._write_unlocked(empty)
+
+    def _write_unlocked(self, data: dict) -> None:
+        # Write-then-rename: a crash mid-write leaves the previous file intact
+        # rather than a truncated one.
+        tmp = self._path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, indent=2))
+        tmp.replace(self._path)
+
+    def read(self) -> dict:
+        with self._lock:
+            try:
+                return json.loads(self._path.read_text())
+            except (FileNotFoundError, json.JSONDecodeError):
+                return json.loads(json.dumps(self._empty))
+
+    def write(self, data: dict) -> None:
+        with self._lock:
+            self._write_unlocked(data)
+
+    def reset(self) -> None:
+        self.write(json.loads(json.dumps(self._empty)))
+
+    @staticmethod
+    def new_id(prefix: str) -> str:
+        return f"{prefix}_{secrets.token_hex(6)}"
+
+    @staticmethod
+    def now() -> str:
+        return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
 
 app = FastAPI(title="waste_recognition", version=APP_VERSION)
 store = Store({"classifications": []})

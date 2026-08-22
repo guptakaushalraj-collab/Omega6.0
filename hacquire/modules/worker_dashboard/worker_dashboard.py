@@ -11,22 +11,160 @@ this module has no concept of waste. FieldOps sells the same product into
 field service, logistics and utilities. Preserving that generality is what
 keeps its resale value beyond waste collection, so callers pass a bin id AS a
 job_ref and keep waste semantics on their own side.
+
+SELF-CONTAINED: datastore, outbound adapters and HTTP surface all live in this
+one file. It imports nothing from a sibling module — its three dependencies
+are reached over HTTP at env-supplied URLs and every one of them degrades.
+
+Run standalone:      uvicorn worker_dashboard:app --port 8006
+Needs:               fastapi  uvicorn  pydantic  httpx
+Env:                 PORT, CREW_AUTH_TOKEN, ROUTE_OPTIMIZER_URL,
+                     NOTIFICATION_URL, NOTIFY_API_KEY, ANALYTICS_URL,
+                     DEPENDENCY_TIMEOUT_MS
 """
+import json
 import math
 import os
+import secrets
+import threading
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Optional
 
+import httpx
 from fastapi import Depends, FastAPI, Header, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
-
-from .clients import dependency_config, emit, notify, optimize_route
-from .store import Store
 
 APP_VERSION = "3.1.0"
 AUTH_TOKEN = os.getenv("CREW_AUTH_TOKEN", "dev-fieldops-token")
 STATUSES = ["assigned", "in_progress", "completed"]
 WORKER_STATES = ["available", "busy", "off_shift"]
+
+
+# ---------------------------------------------------------------------------
+# VENDORED DATASTORE
+#
+# This class is COPIED into every module that needs it, never imported across
+# module boundaries. ~40 duplicated lines is the deliberate price of being able
+# to hand a buyer this single file and have it run with no shared package to
+# untangle. Swap the body for a real database client; no route changes.
+# ---------------------------------------------------------------------------
+class Store:
+    def __init__(self, empty: dict, filename: str = "store.json"):
+        self._empty = empty
+        self._path = Path(__file__).resolve().parent / "data" / filename
+        self._lock = threading.Lock()
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        if not self._path.exists():
+            self._write_unlocked(empty)
+
+    def _write_unlocked(self, data: dict) -> None:
+        # Write-then-rename: a crash mid-write leaves the previous file intact
+        # rather than a truncated one.
+        tmp = self._path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, indent=2))
+        tmp.replace(self._path)
+
+    def read(self) -> dict:
+        with self._lock:
+            try:
+                return json.loads(self._path.read_text())
+            except (FileNotFoundError, json.JSONDecodeError):
+                return json.loads(json.dumps(self._empty))
+
+    def write(self, data: dict) -> None:
+        with self._lock:
+            self._write_unlocked(data)
+
+    def reset(self) -> None:
+        self.write(json.loads(json.dumps(self._empty)))
+
+    @staticmethod
+    def new_id(prefix: str) -> str:
+        return f"{prefix}_{secrets.token_hex(6)}"
+
+    @staticmethod
+    def now() -> str:
+        return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+# ---------------------------------------------------------------------------
+# OUTBOUND ADAPTERS
+#
+# Three rules keep this module independently ownable:
+#
+#   1. Targets resolved from ENV VARS, never hardcoded — swap the provider
+#      (including to a competitor's hosted endpoint) without touching code.
+#   2. HARD TIMEOUT on every request. A slow dependency must not become our
+#      slow response.
+#   3. NEVER RAISE. Each returns {"ok": bool, ...} and the caller degrades.
+#      A dependency being down degrades a feature; it never fails the request.
+#
+# Note the adaptation cost of the OTHER acquired module living here: `notify`
+# translates our vocabulary into SignalPost's (X-API-Key, recipient_type/body/
+# subject_ref). That translation belongs at the call site, not inside the
+# module we bought — which stays unmodified and therefore resaleable.
+# ---------------------------------------------------------------------------
+ROUTE_OPTIMIZER_URL = os.getenv("ROUTE_OPTIMIZER_URL", "")
+NOTIFICATION_URL = os.getenv("NOTIFICATION_URL", "")
+NOTIFY_API_KEY = os.getenv("NOTIFY_API_KEY", "dev-signalpost-key")
+ANALYTICS_URL = os.getenv("ANALYTICS_URL", "")
+TIMEOUT_S = float(os.getenv("DEPENDENCY_TIMEOUT_MS", "2500")) / 1000
+
+
+async def _request(method: str, url: str, **kw) -> dict:
+    try:
+        async with httpx.AsyncClient(timeout=TIMEOUT_S) as client:
+            r = await client.request(method, url, **kw)
+            if r.status_code >= 400:
+                return {"ok": False, "reason": f"upstream_{r.status_code}"}
+            return {"ok": True, "data": r.json()}
+    except httpx.TimeoutException:
+        return {"ok": False, "reason": "timeout"}
+    except Exception:
+        return {"ok": False, "reason": "unreachable"}
+
+
+async def optimize_route(start: dict, stops: list[dict]) -> dict:
+    """Degradation: caller falls back to unordered stops, so a worker still
+    sees their queue when the optimizer is down."""
+    if not ROUTE_OPTIMIZER_URL:
+        return {"ok": False, "reason": "not_configured"}
+    return await _request("POST", f"{ROUTE_OPTIMIZER_URL}/api/v1/optimize",
+                          json={"start": start, "stops": stops})
+
+
+async def notify(recipient_type: str, body: str, subject_ref: str,
+                 recipient_id: str | None = None) -> dict:
+    """Degradation: the assignment still stands; only the alert is lost."""
+    if not NOTIFICATION_URL:
+        return {"ok": False, "reason": "not_configured"}
+    return await _request(
+        "POST", f"{NOTIFICATION_URL}/v1/messages",
+        headers={"X-API-Key": NOTIFY_API_KEY},   # SignalPost's scheme, not ours
+        json={"recipient_type": recipient_type, "recipient_id": recipient_id,
+              "body": body, "subject_ref": subject_ref, "channel": "in_app"},
+    )
+
+
+async def emit(event_type: str, subject_id: str, payload: dict) -> dict:
+    """Degradation: metrics lose a data point."""
+    if not ANALYTICS_URL:
+        return {"ok": False, "reason": "not_configured"}
+    return await _request("POST", f"{ANALYTICS_URL}/api/v1/events",
+                          json={"type": event_type, "subject_id": subject_id,
+                                "source": "worker_dashboard", "payload": payload})
+
+
+def dependency_config() -> dict:
+    return {
+        "route_optimizer": ROUTE_OPTIMIZER_URL or None,
+        "notification_system": NOTIFICATION_URL or None,
+        "analytics_dashboard": ANALYTICS_URL or None,
+        "timeout_ms": int(TIMEOUT_S * 1000),
+    }
+
 
 app = FastAPI(title="FieldOps Crew", version=APP_VERSION)
 store = Store({"workers": [], "assignments": []})

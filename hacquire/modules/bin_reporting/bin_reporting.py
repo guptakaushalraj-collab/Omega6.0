@@ -10,27 +10,161 @@ dependency is called. A member of the public standing next to an overflowing
 bin must never lose their submission because an internal service is down.
 Classification and dispatch are enrichments layered on afterwards, each
 independently degradable, and whatever fails is named in `degraded`.
+
+SELF-CONTAINED: datastore, outbound adapters and HTTP surface all live in this
+one file. It imports nothing from a sibling module — its three dependencies
+are reached over HTTP at env-supplied URLs and every one of them degrades.
+
+Run standalone:      uvicorn bin_reporting:app --port 8001
+Needs:               fastapi  uvicorn  pydantic  httpx  python-multipart
+Env:                 PORT, WASTE_RECOGNITION_URL, WORKER_DASHBOARD_URL,
+                     CREW_AUTH_TOKEN, ANALYTICS_URL, DEPENDENCY_TIMEOUT_MS
 """
 import base64
+import json
 import os
+import secrets
+import threading
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
+import httpx
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
-
-from .clients import classify, dependency_config, emit, request_assignment
-from .store import Store
 
 APP_VERSION = "1.0.0"
 MAX_IMAGE_BYTES = 8 * 1024 * 1024
 UPLOAD_DIR = Path(__file__).resolve().parent / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+STATUSES = ["reported", "assigned", "in_progress", "cleared"]
+
+
+# ---------------------------------------------------------------------------
+# VENDORED DATASTORE
+#
+# This class is COPIED into every module that needs it, never imported across
+# module boundaries. ~40 duplicated lines is the deliberate price of being able
+# to hand a buyer this single file and have it run with no shared package to
+# untangle. Swap the body for a real database client; no route changes.
+# ---------------------------------------------------------------------------
+class Store:
+    def __init__(self, empty: dict, filename: str = "store.json"):
+        self._empty = empty
+        self._path = Path(__file__).resolve().parent / "data" / filename
+        self._lock = threading.Lock()
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        if not self._path.exists():
+            self._write_unlocked(empty)
+
+    def _write_unlocked(self, data: dict) -> None:
+        # Write-then-rename: a crash mid-write leaves the previous file intact
+        # rather than a truncated one.
+        tmp = self._path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, indent=2))
+        tmp.replace(self._path)
+
+    def read(self) -> dict:
+        with self._lock:
+            try:
+                return json.loads(self._path.read_text())
+            except (FileNotFoundError, json.JSONDecodeError):
+                return json.loads(json.dumps(self._empty))
+
+    def write(self, data: dict) -> None:
+        with self._lock:
+            self._write_unlocked(data)
+
+    def reset(self) -> None:
+        self.write(json.loads(json.dumps(self._empty)))
+
+    @staticmethod
+    def new_id(prefix: str) -> str:
+        return f"{prefix}_{secrets.token_hex(6)}"
+
+    @staticmethod
+    def now() -> str:
+        return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+# ---------------------------------------------------------------------------
+# OUTBOUND ADAPTERS
+#
+# Same three rules as every client layer in the registry: targets from env
+# vars, hard timeout, never raise — return {"ok": bool, ...} and let the caller
+# degrade.
+#
+# The worker_dashboard adapter carries the adaptation for that ACQUIRED module:
+# Bearer auth, snake_case, and its domain-neutral vocabulary (our bin id
+# becomes its `job_ref`). Keeping that translation here is what lets the
+# purchased module stay unmodified and therefore resaleable.
+# ---------------------------------------------------------------------------
+WASTE_RECOGNITION_URL = os.getenv("WASTE_RECOGNITION_URL", "")
+WORKER_DASHBOARD_URL = os.getenv("WORKER_DASHBOARD_URL", "")
+CREW_AUTH_TOKEN = os.getenv("CREW_AUTH_TOKEN", "dev-fieldops-token")
+ANALYTICS_URL = os.getenv("ANALYTICS_URL", "")
+TIMEOUT_S = float(os.getenv("DEPENDENCY_TIMEOUT_MS", "2500")) / 1000
+
+
+async def _request(method: str, url: str, **kw) -> dict:
+    try:
+        async with httpx.AsyncClient(timeout=TIMEOUT_S) as client:
+            r = await client.request(method, url, **kw)
+            if r.status_code >= 400:
+                return {"ok": False, "reason": f"upstream_{r.status_code}"}
+            return {"ok": True, "data": r.json()}
+    except httpx.TimeoutException:
+        return {"ok": False, "reason": "timeout"}
+    except Exception:
+        return {"ok": False, "reason": "unreachable"}
+
+
+async def call_classifier(image: bytes, reference: str) -> dict:
+    """Degradation: the bin is stored unclassified and can be backfilled later
+    via POST /api/v1/reports/{id}/reclassify."""
+    if not WASTE_RECOGNITION_URL:
+        return {"ok": False, "reason": "not_configured"}
+    return await _request("POST", f"{WASTE_RECOGNITION_URL}/api/v1/classify",
+                          json={"image_base64": base64.b64encode(image).decode(),
+                                "reference": reference})
+
+
+async def request_assignment(bin_id: str, location: dict, waste_type: Optional[str]) -> dict:
+    """Degradation: the report stays 'reported' and can be dispatched later.
+
+    Note the vocabulary translation — our bin id is its job_ref.
+    """
+    if not WORKER_DASHBOARD_URL:
+        return {"ok": False, "reason": "not_configured"}
+    return await _request(
+        "POST", f"{WORKER_DASHBOARD_URL}/v1/assignments",
+        headers={"Authorization": f"Bearer {CREW_AUTH_TOKEN}"},  # FieldOps' scheme
+        json={"job_ref": bin_id, "location": location,
+              "metadata": {"waste_type": waste_type}},
+    )
+
+
+async def emit(event_type: str, subject_id: str, payload: dict) -> dict:
+    """Degradation: the report succeeds; metrics lose a data point."""
+    if not ANALYTICS_URL:
+        return {"ok": False, "reason": "not_configured"}
+    return await _request("POST", f"{ANALYTICS_URL}/api/v1/events",
+                          json={"type": event_type, "subject_id": subject_id,
+                                "source": "bin_reporting", "payload": payload})
+
+
+def dependency_config() -> dict:
+    return {
+        "waste_recognition": WASTE_RECOGNITION_URL or None,
+        "worker_dashboard": WORKER_DASHBOARD_URL or None,
+        "analytics_dashboard": ANALYTICS_URL or None,
+        "timeout_ms": int(TIMEOUT_S * 1000),
+    }
+
+
 app = FastAPI(title="bin_reporting", version=APP_VERSION)
 store = Store({"reports": []})
-
-STATUSES = ["reported", "assigned", "in_progress", "cleared"]
 
 
 class ReportIn(BaseModel):
@@ -108,7 +242,7 @@ async def create_report(location: dict, *, address=None, notes=None,
 
     # --- enrich: classify --------------------------------------------------
     if photo_filename:
-        result = await classify((UPLOAD_DIR / photo_filename).read_bytes(), report["id"])
+        result = await call_classifier((UPLOAD_DIR / photo_filename).read_bytes(), report["id"])
         if result["ok"]:
             report["classification"] = result["data"]["prediction"]
             report["waste_type"] = result["data"]["prediction"]["type"]
@@ -160,7 +294,7 @@ async def reclassify(bin_id: str) -> dict:
     if not path.exists():
         return {"ok": False, "code": "photo_gone"}
 
-    result = await classify(path.read_bytes(), bin_id)
+    result = await call_classifier(path.read_bytes(), bin_id)
     if not result["ok"]:
         return {"ok": False, "code": "classifier_unavailable", "reason": result["reason"]}
 
