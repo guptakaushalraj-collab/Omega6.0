@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import httpx
-from fastapi import APIRouter, Depends, FastAPI, Header, Request, Response
+from fastapi import APIRouter, Depends, FastAPI, Header, Query, Request, Response
 from fastapi.routing import APIRoute
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -238,6 +238,17 @@ class AssignmentIn(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class AssignIn(BaseModel):
+    """House alias shape. `binId`/`workerId` are our words for the vendor's
+    `job_ref`/`worker_id`; both spellings are accepted."""
+    binId: Optional[str] = None
+    job_ref: Optional[str] = None
+    workerId: Optional[str] = None
+    worker_id: Optional[str] = None
+    location: Optional[Point] = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class StatusPatch(BaseModel):
     status: str
 
@@ -333,19 +344,162 @@ async def create_assignment(body: AssignmentIn, _=Depends(require_bearer)):
     data["assignments"].append(assignment)
     store.write(data)
 
-    notified = await notify("worker", f"New pickup assigned, {distance} km away.",
-                            body.job_ref, nearest["id"])
-    emitted = await emit("bin.assigned", body.job_ref,
-                         {"worker_id": nearest["id"], "distance_km": distance})
+    return {**assignment, "side_effects": await _announce(assignment)}
+
+
+async def _announce(assignment: dict) -> dict:
+    """Tell the crew and the metrics that a job moved. Fire-and-forget.
+
+    If either dependency is down the assignment still stands and is returned
+    normally, with the failure named in `side_effects` so the caller can see
+    what did not happen.
+    """
+    notified = await notify("worker", f"New pickup assigned, {assignment['distance_km']} km away.",
+                            assignment["job_ref"], assignment["worker_id"])
+    emitted = await emit("bin.assigned", assignment["job_ref"],
+                         {"worker_id": assignment["worker_id"],
+                          "distance_km": assignment["distance_km"]})
     # The SENDER reports delivery, not the notification module — that keeps
     # notification_system a dependency-free leaf, and more readily sold alone.
     if notified["ok"]:
-        await emit("notification.sent", body.job_ref,
+        await emit("notification.sent", assignment["job_ref"],
                    {"recipient_type": "worker", "trigger": "assigned"})
+    return {"notification": "sent" if notified["ok"] else f"skipped:{notified['reason']}",
+            "analytics": "recorded" if emitted["ok"] else f"skipped:{emitted['reason']}"}
 
-    return {**assignment, "side_effects": {
-        "notification": "sent" if notified["ok"] else f"skipped:{notified['reason']}",
-        "analytics": "recorded" if emitted["ok"] else f"skipped:{emitted['reason']}"}}
+
+def _release_if_idle(data: dict, worker_id: str, except_assignment: str) -> None:
+    """Free a worker only when they hold no other open job.
+
+    A worker carrying several stops must not flip back to available because
+    one of them moved elsewhere.
+    """
+    worker = next((w for w in data["workers"] if w["id"] == worker_id), None)
+    if worker is None or worker["status"] == "off_shift":
+        return
+    still_open = any(a["worker_id"] == worker_id and a["id"] != except_assignment
+                     and a["status"] != "completed" for a in data["assignments"])
+    if not still_open:
+        worker["status"] = "available"
+
+
+@router.post("/assign", status_code=201)
+async def assign(
+    body: Optional[AssignIn] = None,
+    binId: Optional[str] = Query(None, description="Job id — a bin id, in this network"),
+    workerId: Optional[str] = Query(None, description="Assign this specific worker; omit to auto-dispatch"),
+    location: Optional[str] = Query(None, description='"lat,lng" — required for a NEW job'),
+    _=Depends(require_bearer),
+):
+    """Assign a worker to a bin.
+
+    Named worker, or automatic. `POST /v1/assignments` only ever dispatches the
+    nearest AVAILABLE worker, which is the right default and the wrong answer
+    when a supervisor needs a specific person on a specific job. This route
+    does both:
+
+      binId + workerId + location  -> that worker takes the new job
+      binId + location             -> nearest available takes it (as /v1 does)
+      binId + workerId             -> REASSIGN an existing open job, reusing
+                                      its stored location
+
+    A named worker may already be `busy` — stacking stops onto one round is
+    exactly what manual assignment is for, and the route optimizer sequences
+    them. `off_shift` is refused: assigning work to someone not on duty is
+    almost always a mistake, and the supervisor can put them back on shift
+    first if it is not.
+
+    VOCABULARY. `binId` is accepted here because this alias is ours, not the
+    vendor's. Underneath it is still a `job_ref`: FieldOps sells this product
+    into field service, logistics and utilities, and its domain-neutral core
+    is what keeps its resale value beyond waste collection. The /v1 surface
+    never learns what a bin is.
+
+    LOCATION cannot be looked up. This module has no idea what a bin is, let
+    alone where — resolving one would mean calling back into bin_reporting and
+    creating a cycle. So a NEW job needs coordinates; a reassignment reuses the
+    ones already on the record.
+    """
+    job_ref = (body.binId or body.job_ref) if body else binId
+    worker_id = (body.workerId or body.worker_id) if body else workerId
+    if not job_ref:
+        return fail(400, "missing_job_ref", "binId (job_ref) is required.")
+
+    point = None
+    if body and body.location:
+        point = body.location.model_dump()
+    elif location:
+        parts = location.split(",")
+        try:
+            point = {"lat": float(parts[0]), "lng": float(parts[1])}
+        except (ValueError, IndexError):
+            return fail(400, "invalid_location", 'location must be "lat,lng".')
+
+    data = store.read()
+    existing = next((a for a in data["assignments"]
+                     if a["job_ref"] == job_ref and a["status"] != "completed"), None)
+    if point is None and existing:
+        point = existing["location"]
+    if point is None:
+        return fail(400, "missing_location",
+                    'location is required for a new job, as "lat,lng" or {"lat":..,"lng":..}. '
+                    "This module cannot resolve a bin id to coordinates.")
+
+    if worker_id:
+        worker = next((w for w in data["workers"] if w["id"] == worker_id), None)
+        if worker is None:
+            return fail(404, "not_found", f"No worker with id {worker_id}.")
+        if worker["status"] == "off_shift":
+            return fail(409, "worker_off_shift",
+                        f"{worker['name']} is off shift. Set them available first.")
+    else:
+        available = [w for w in data["workers"] if w["status"] == "available"]
+        if not available:
+            # A real answer (everyone is busy), NOT an outage.
+            return fail(503, "no_workers_available", "No available worker to assign.")
+        worker = min(available, key=lambda w: haversine_km(point, w["location"]))
+
+    distance = round(haversine_km(point, worker["location"]), 2)
+    reassigned_from = None
+
+    if existing:
+        if existing["worker_id"] == worker["id"] and existing["location"] == point:
+            return fail(409, "already_assigned",
+                        f"{job_ref} is already assigned to {worker['name']}.")
+        reassigned_from = existing["worker_id"]
+        existing.update({"worker_id": worker["id"], "worker_name": worker["name"],
+                         "location": point, "distance_km": distance,
+                         "assigned_at": store.now()})
+        assignment = existing
+    else:
+        assignment = {
+            "id": store.new_id("asg"), "job_ref": job_ref,
+            "worker_id": worker["id"], "worker_name": worker["name"],
+            "location": point, "metadata": body.metadata if body else {},
+            "distance_km": distance, "status": "assigned",
+            "assigned_at": store.now(), "started_at": None, "completed_at": None,
+        }
+        data["assignments"].append(assignment)
+
+    worker["status"] = "busy"
+    if reassigned_from and reassigned_from != worker["id"]:
+        _release_if_idle(data, reassigned_from, assignment["id"])
+
+    # Persist BEFORE side effects, so a slow dependency can never cost us the
+    # assignment itself.
+    store.write(data)
+
+    return {
+        "binId": assignment["job_ref"],
+        "workerId": assignment["worker_id"],
+        "status": assignment["status"],
+        "assignmentId": assignment["id"],
+        "workerName": assignment["worker_name"],
+        "distance_km": distance,
+        "mode": "manual" if worker_id else "auto-dispatch",
+        "reassignedFrom": reassigned_from,
+        "side_effects": await _announce(assignment),
+    }
 
 
 @router.get("/v1/assignments")

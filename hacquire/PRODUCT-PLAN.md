@@ -505,6 +505,45 @@ every house alias without breaking a single documented SignalPost endpoint:
 `POST /v1/messages` · `GET /v1/messages` · `POST /v1/messages/{id}/ack` ·
 `POST /v1/messages/ack_all` · `GET /v1/channels`
 
+### Assigning work — `POST /assign` *(worker_dashboard)*
+
+`POST /v1/assignments` only ever dispatches the nearest AVAILABLE worker — the
+right default, and the wrong answer when a supervisor needs a specific person
+on a specific job. `/assign` does both:
+
+| Input | Behaviour |
+|---|---|
+| `binId` + `workerId` + `location` | that worker takes the new job |
+| `binId` + `location` | nearest available takes it (as `/v1` does) |
+| `binId` + `workerId` | **reassign** an open job, reusing its stored location |
+
+**Live response** `201`:
+
+```json
+{
+  "binId": "bin_alpha", "workerId": "wrk_131cea558065", "status": "assigned",
+  "assignmentId": "asg_0ea4c2c58965", "workerName": "Ravi Patel",
+  "distance_km": 5.68, "mode": "manual", "reassignedFrom": null,
+  "side_effects": { "notification": "sent", "analytics": "recorded" }
+}
+```
+
+A named worker may already be `busy` — stacking stops onto one round is what
+manual assignment is *for*, and the optimizer sequences them (verified: two
+stops, 4.62 km, nearest-neighbour + 2-opt). `off_shift` is refused with `409`.
+Reassigning frees the previous worker only if they hold no other open job.
+
+**Location cannot be looked up.** This module has no idea what a bin is, let
+alone where — resolving one would mean calling back into `bin_reporting` and
+creating a cycle. A new job needs coordinates; a reassignment reuses the ones
+already on the record.
+
+**Vocabulary stays quarantined.** `binId` is accepted on this alias because
+the alias is ours. Underneath it is still `job_ref`: FieldOps sells the same
+product into field service, logistics and utilities, and that domain-neutral
+core is what keeps its resale value beyond waste collection. Verified — an
+assignment record carries `job_ref` and no `binId`.
+
 ### Worker dashboard — `GET /v1/workers/{id}/queue` *(worker_dashboard)*
 
 **Live response** `200`:

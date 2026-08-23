@@ -63,6 +63,7 @@ uvicorn main:app --reload           # http://localhost:8000
 | `GET  /analytics/analytics` | chart-ready data |
 | `POST /notify/pickup` | alert the citizen — short form |
 | `POST /notify/notifyPickup` | alert the citizen — full form |
+| `POST /worker/assign` | assign a worker to a bin — named or automatic |
 | `GET  /` | the registry and the full path map |
 
 **Six processes** — one service per port, the shape the trading positions
