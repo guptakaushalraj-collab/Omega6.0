@@ -60,7 +60,7 @@ PORTS = {
     "analytics_dashboard": int(env("ANALYTICS_DASHBOARD_PORT", "8004")),
     "notification_system": int(env("NOTIFICATION_SYSTEM_PORT", "8005")),
     "worker_dashboard":    int(env("WORKER_DASHBOARD_PORT", "8006")),
-    "chat_assistant":      int(env("CHAT_ASSISTANT_PORT", "8007")),
+    "chatbot":             int(env("CHATBOT_PORT", "8007")),
 }
 
 HOST = env("HOST", "0.0.0.0")
@@ -106,14 +106,19 @@ REGISTRY = [
     }),
     # Last: it reads from the other five, so booting it after them keeps the
     # first log line honest. It tolerates all of them being absent regardless.
-    ("chat_assistant",      "BOUGHT — Suvida Chatbot",   lambda: {
-        "BIN_REPORTING_URL":    url("bin_reporting"),
-        "ANALYTICS_URL":        url("analytics_dashboard"),
-        "WORKER_DASHBOARD_URL": url("worker_dashboard"),
-        "CREW_AUTH_TOKEN":      CREW_AUTH_TOKEN,
-        "CHAT_API_KEY":         CHAT_API_KEY,
+    # It reads from all five others — the only module that touches every one.
+    ("chatbot",             "BOUGHT — Suvida Chatbot",   lambda: {
+        "BIN_REPORTING_URL":     url("bin_reporting"),
+        "WASTE_RECOGNITION_URL": url("waste_recognition"),
+        "ROUTE_OPTIMIZER_URL":   url("route_optimizer"),
+        "ANALYTICS_URL":         url("analytics_dashboard"),
+        "NOTIFICATION_URL":      url("notification_system"),
+        "WORKER_DASHBOARD_URL":  url("worker_dashboard"),
+        "NOTIFY_API_KEY":        NOTIFY_API_KEY,
+        "CREW_AUTH_TOKEN":       CREW_AUTH_TOKEN,
+        "CHAT_API_KEY":          CHAT_API_KEY,
         # Unset by default: the assistant answers from templates without it.
-        "OLLAMA_URL":           env("OLLAMA_URL", ""),
+        "OLLAMA_URL":            env("OLLAMA_URL", ""),
     }),
 ]
 

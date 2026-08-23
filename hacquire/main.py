@@ -65,7 +65,7 @@ from fastapi import FastAPI                                              # noqa:
 
 from modules.analytics_dashboard.analytics_dashboard import router as analytics_router  # noqa: E402
 from modules.bin_reporting.bin_reporting import router as bin_router                    # noqa: E402
-from modules.chat_assistant.chat_assistant import router as chat_router                 # noqa: E402
+from modules.chatbot.chatbot import router as chat_router                               # noqa: E402
 from modules.notification_system.notification_system import router as notify_router     # noqa: E402
 from modules.route_optimizer.route_optimizer import router as route_router              # noqa: E402
 from modules.waste_recognition.waste_recognition import router as waste_router          # noqa: E402
@@ -80,7 +80,7 @@ app.include_router(route_router, prefix="/route", tags=["route_optimizer"])
 app.include_router(analytics_router, prefix="/analytics", tags=["analytics_dashboard"])
 app.include_router(notify_router, prefix="/notify", tags=["notification_system"])
 app.include_router(worker_router, prefix="/worker", tags=["worker_dashboard"])
-app.include_router(chat_router, prefix="/chat", tags=["chat_assistant"])
+app.include_router(chat_router, prefix="/chat", tags=["chatbot"])
 
 
 @app.get("/", tags=["network"])
@@ -96,7 +96,7 @@ def index():
             "analytics_dashboard": {"prefix": "/analytics", "position": "SOLD $35,000"},
             "notification_system": {"prefix": "/notify",    "position": "BOUGHT — SignalPost Relay 2.4.1"},
             "worker_dashboard":    {"prefix": "/worker",    "position": "BOUGHT — FieldOps Crew 3.1.0"},
-            "chat_assistant":      {"prefix": "/chat",      "position": "BOUGHT — Suvida Chatbot"},
+            "chatbot":             {"prefix": "/chat",      "position": "BOUGHT — Suvida Chatbot"},
         },
         "flat_api": {
             "reportBin":       "POST /bin/reportBin",

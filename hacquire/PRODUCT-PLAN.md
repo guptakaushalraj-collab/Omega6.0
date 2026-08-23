@@ -93,12 +93,13 @@ hacquire/                                   PROJECT ROOT
 │       │                                   module, at the call site.
 │       └── mocks/{workers,assignments}.json
 │   │
-│   └── chat_assistant/
-│       ├── chat_assistant.py               :8007  BOUGHT — Suvida Chatbot
-│       │                                   Conversational front door. Routes
-│       │                                   intents to five other modules over
-│       │                                   HTTP; a local LLM only rephrases
-│       │                                   and is entirely optional.
+│   └── chatbot/
+│       ├── chatbot.py                      :8007  BOUGHT — Suvida Chatbot
+│       │                                   Conversational front door. Reaches
+│       │                                   ALL SIX other modules over HTTP —
+│       │                                   the only component that does. A
+│       │                                   local LLM only rephrases, and is
+│       │                                   entirely optional.
 │       └── mocks/
 │           ├── conversations.json
 │           └── vendor_prompt_transport.txt PRESERVED vendor asset — the
@@ -325,7 +326,7 @@ original vendor conventions rather than being normalised.
 | analytics_dashboard | 8004 | `/api/v1` | none |
 | notification_system | 8005 | `/v1` | `X-API-Key` |
 | worker_dashboard | 8006 | `/v1` | `Authorization: Bearer` |
-| chat_assistant | 8007 | *(flat)* | `X-API-Key` |
+| chatbot | 8007 | *(flat)* | `X-API-Key` |
 
 ### Reporting bins — `POST /reportBin` *(bin_reporting)*
 
@@ -435,6 +436,24 @@ another inference call. Send `"force": true` to re-run.
 Direct classification: `POST /api/v1/classify` (base64) ·
 `POST /api/v1/classify-upload` (multipart) · `GET /api/v1/waste-types` ·
 `GET /api/v1/classifications[/{id}]`
+
+### Optimizing routes — `POST /optimize` · `GET /optimizeRoute?bins=[...]` *(route_optimizer)*
+
+The POST twin exists for callers with more stops than fit in a query string —
+a URL has a practical ceiling near 2 KB, and 200 coordinate pairs blow straight
+through it. Same parsing, same response, shared implementation, so the two
+cannot drift.
+
+```json
+// POST /optimize
+{ "bins": [ {"lat": 12.955, "lng": 77.620}, {"lat": 13.005, "lng": 77.570},
+            {"lat": 12.975, "lng": 77.640}, {"lat": 12.935, "lng": 77.600} ],
+  "start": "12.972,77.595" }
+```
+
+Both are still stateless: `bins` must carry coordinates. Resolving a bin id
+would mean calling `bin_reporting` and forfeiting the dependency-free property
+that makes this the registry's cleanest asset.
 
 ### Optimizing routes — `GET /optimizeRoute?bins=[...]` *(route_optimizer)*
 
@@ -566,7 +585,7 @@ product into field service, logistics and utilities, and that domain-neutral
 core is what keeps its resale value beyond waste collection. Verified — an
 assignment record carries `job_ref` and no `binId`.
 
-### Conversation — `POST /chat` *(chat_assistant)*
+### Conversation — `POST /chat` *(chatbot)*
 
 ```bash
 curl -X POST localhost:8007/chat -H "X-API-Key: dev-suvida-key" \
@@ -594,16 +613,34 @@ other keys are additive, so a client written against the acquired API still
 works: `intent` and `data` let a UI render a card instead of a wall of text,
 `source` says whether a model was involved, `degraded` names what was skipped.
 
-**Six intents, routed deterministically** — 18/18 on the routing test set:
+**Nine intents, routed deterministically** — 21/21 on the routing test set.
+The assistant reaches **every other module**; nothing else in the network does:
 
-| Intent | Reaches |
-|---|---|
-| `report_bin` | `bin_reporting` `POST /reportBin` |
-| `pickup_status` | `bin_reporting` **and** `worker_dashboard`, reconciled |
-| `analytics` | `analytics_dashboard` `GET /analytics` |
-| `route` | `worker_dashboard` queue → `route_optimizer` |
-| `worker` | `worker_dashboard` workers / assignments |
-| `help` · `offtopic` | answered locally |
+| Intent | Calls | Example |
+|---|---|---|
+| `report_bin` | `POST /bin/report` | "overflowing bin at 12.972,77.595" |
+| `identify` | `POST /waste/detect` | "what kind of waste is this" + `image` |
+| `route` (coords) | `POST /route/optimize` | "plan a route for 12.95,77.62 and …" |
+| `analytics` | `GET /analytics` | "how are we doing this week" |
+| `notify` | `POST /notify/pickup` | "let the resident know about bin_f4f6…" |
+| `assign_worker` | `POST /worker/assign` | "assign Ravi to bin_f4f6…" |
+| `pickup_status` | `/bin` **and** `/worker`, reconciled | "has bin_f4f6… been collected" |
+| `route` (worker) | `/worker` queue → `/route` | "what is on Asha's round" |
+| `worker` | `/worker` workers / assignments | "who is assigned to bin_f4f6…" |
+| `help` · `offtopic` | answered locally | — |
+
+Each was verified server-side rather than from the reply text: the bin record
+and stored photo in `bin_reporting`, a logged classification in
+`waste_recognition`, the 2-opt saving in the optimizer response, the event
+counts in `analytics_dashboard`, the messages in `notification_system`, and
+the assignment in `worker_dashboard`.
+
+**Two routing-order bugs, both worth recording.** A bin-id fallback that ran
+*first* swallowed every new verb — once `notify` and `assign_worker` existed,
+"assign Ravi to bin_x" came back as a status lookup because it mentioned a
+bin. And a score tie sent "notify the crew" to the crew list. The fallback now
+runs last, and actions outrank lookups, so a new intent cannot be shadowed by
+either rule again.
 
 **Reconciliation.** `bin_reporting` owns the report; `worker_dashboard` owns
 the job. A completed assignment is never pushed back to `bin_reporting` —
@@ -766,12 +803,12 @@ async def collection_pipeline():
 
 > **Rule: at least one purchase is mandatory.**
 > **Status: SATISFIED — three purchases**, `notification_system`,
-> `worker_dashboard` and `chat_assistant`. All three are integrated and
+> `worker_dashboard` and `chatbot`. All three are integrated and
 > load-bearing, not shelf-ware: dispatch, routing and every notification flow
 > through the first two, and the third is the product's entire conversational
 > surface.
 
-**`chat_assistant`** (Suvida Chatbot, `AniketCodes76/suvida_chatbot` @
+**`chatbot`** (Suvida Chatbot, `AniketCodes76/suvida_chatbot` @
 `e207819`) — acquired as a *public-transport* assistant. Word counts against
 the source say it plainly: bus 2, train 2, metro 1, tram 1, waste 0, bin 0,
 recycling 0, collection 0.
@@ -857,7 +894,7 @@ production hardening; counterparty negotiation.
 3. **Concentration.** Divesting three of seven leaves three purchased modules
    under proprietary licence. A lost licence-back would require replacing three
    capabilities at once — mechanical, thanks to the indirection, but real.
-4. **`chat_assistant` price not yet recorded.** The other six carry settled
+4. **`chatbot` price not yet recorded.** The other six carry settled
    figures; this acquisition closed after the ledger was drawn up. The
    consideration needs entering before the ledger is final — it is left blank
    here rather than estimated.
@@ -879,7 +916,7 @@ production hardening; counterparty negotiation.
 - **Divested:** `waste_recognition` $42k · `analytics_dashboard` $35k ·
   `route_optimizer` $28k → **$105,000**.
 - **Retained:** `worker_dashboard` (escrowed source, vertical-agnostic) ·
-  `notification_system` (support window closes 2027-03-14) · `chat_assistant`
+  `notification_system` (support window closes 2027-03-14) · `chatbot`
   (re-personed from public transport; diligence caught a fail-open auth hole).
 - **Consulting slot:** 30 min, verification and risk sign-off.
 - **HACQUIRE compliance:** three purchases — mandatory minimum exceeded.

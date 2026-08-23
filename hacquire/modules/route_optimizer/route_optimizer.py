@@ -170,30 +170,15 @@ def distance_matrix(points: list[Point]):
             "matrix": [[round(haversine_km(a, b), 4) for b in pts] for a in pts]}
 
 
-@router.get("/optimizeRoute")
-def optimize_route_alias(
-    bins: str = Query(..., description='JSON array: [{"lat":..,"lng":..}] or ["lat,lng"]'),
-    start: Optional[str] = None,
-    refine: bool = True,
-):
-    """Flat alias over POST /api/v1/optimize.
+def _coerce_stops(entries: list) -> list[dict]:
+    """Accept the several shapes a caller might reasonably send.
 
-    `bins` must carry COORDINATES. This module is stateless and dependency-free
-    — that is its main selling point — so it cannot resolve a bare bin id like
-    "bin_1fab6e" to a location. Doing so would require calling bin_reporting
-    and forfeit that property.
+    ["12.97,77.59"] · [{"lat":..,"lng":..}] · [{"id":..,"location":"lat,lng"}] ·
+    [{"id":..,"location":{"lat":..,"lng":..}}] — extra keys pass through onto
+    the sequenced result untouched.
     """
-    try:
-        parsed = _json.loads(bins)
-    except _json.JSONDecodeError:
-        raise HTTPException(400, 'bins must be a JSON array, e.g. bins=[{"lat":12.97,"lng":77.59}]')
-    if not isinstance(parsed, list):
-        raise HTTPException(400, "bins must be a JSON array")
-    if len(parsed) > MAX_STOPS:
-        raise HTTPException(413, f"bins exceeds the {MAX_STOPS}-stop limit")
-
     stops: list[dict] = []
-    for i, entry in enumerate(parsed):
+    for i, entry in enumerate(entries):
         loc = None
         extra: dict[str, Any] = {}
         if isinstance(entry, str):
@@ -216,17 +201,83 @@ def optimize_route_alias(
                          "resolves and sequences in one call."),
             })
         stops.append({**extra, "id": extra.get("id") or f"stop_{i+1}", "location": loc})
+    return stops
+
+
+def _sequence(entries: list, start, refine: bool) -> dict:
+    """Shared body of both flat aliases, so GET and POST cannot drift."""
+    if not isinstance(entries, list):
+        raise HTTPException(400, "bins must be a JSON array")
+    if len(entries) > MAX_STOPS:
+        raise HTTPException(413, f"bins exceeds the {MAX_STOPS}-stop limit")
+
+    stops = _coerce_stops(entries)
 
     start_pt, defaulted = DEFAULT_START, True
-    if start:
-        parsed_start = _parse_latlng(start)
+    if start is not None:
+        parsed_start = _parse_latlng(start) if isinstance(start, str) else None
+        if parsed_start is None and isinstance(start, dict):
+            try:
+                parsed_start = {"lat": float(start["lat"]), "lng": float(start["lng"])}
+            except (KeyError, TypeError, ValueError):
+                parsed_start = None
         if parsed_start is None:
-            raise HTTPException(400, 'start must be "lat,lng"')
+            raise HTTPException(400, 'start must be "lat,lng" or {"lat":..,"lng":..}')
         start_pt, defaulted = parsed_start, False
 
     result = optimize(start_pt, stops, refine)
     return {"start": start_pt, "start_defaulted": defaulted,
             "order": [s["id"] for s in result["stops"]], **result}
+
+
+class OptimizeIn(BaseModel):
+    """Flat alias shape — `bins` takes any of the forms _coerce_stops accepts."""
+    bins: list = Field(default_factory=list)
+    start: Any = Field(None, examples=["12.972,77.595"])
+    refine: bool = True
+
+
+@router.post("/optimize")
+def optimize_alias(body: OptimizeIn):
+    """Sequence a set of stops into a short round.
+
+    POST twin of GET /optimizeRoute, for callers with more stops than fit
+    comfortably in a query string — a URL has a practical ceiling around 2 KB
+    and 200 coordinate pairs blow straight through it. Same parsing, same
+    response, shared implementation.
+
+    Still stateless: `bins` must carry COORDINATES. This module cannot resolve
+    a bin id without calling bin_reporting, which would forfeit the
+    dependency-free property that makes it the registry's cleanest asset.
+    """
+    if not body.bins:
+        raise HTTPException(400, 'bins must be a non-empty array of coordinates')
+    return _sequence(body.bins, body.start, body.refine)
+
+
+@router.get("/optimizeRoute")
+def optimize_route_alias(
+    bins: str = Query(..., description='JSON array: [{"lat":..,"lng":..}] or ["lat,lng"]'),
+    start: Optional[str] = None,
+    refine: bool = True,
+):
+    """Flat alias over POST /api/v1/optimize.
+
+    `bins` must carry COORDINATES. This module is stateless and dependency-free
+    — that is its main selling point — so it cannot resolve a bare bin id like
+    "bin_1fab6e" to a location. Doing so would require calling bin_reporting
+    and forfeit that property.
+    """
+    try:
+        parsed = _json.loads(bins)
+    except _json.JSONDecodeError:
+        raise HTTPException(400, 'bins must be a JSON array, e.g. bins=[{"lat":12.97,"lng":77.59}]')
+    if not isinstance(parsed, list):
+        raise HTTPException(400, "bins must be a JSON array")
+    if len(parsed) > MAX_STOPS:
+        raise HTTPException(413, f"bins exceeds the {MAX_STOPS}-stop limit")
+
+    return _sequence(parsed, start, refine)
 
 
 # --------------------------------------------------------------- packaging

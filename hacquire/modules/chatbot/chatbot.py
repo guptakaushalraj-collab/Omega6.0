@@ -1,4 +1,4 @@
-"""chat_assistant — :8007 — BOUGHT (Suvida Chatbot, AniketCodes76/suvida_chatbot @ e207819)
+"""chatbot — :8007 — BOUGHT (Suvida Chatbot, AniketCodes76/suvida_chatbot @ e207819)
 
 ACQUIRED MODULE. Conversational front door to the network: report a bin, chase
 a pickup, read the numbers, ask who is on a round — in plain language.
@@ -45,7 +45,7 @@ DEGRADES TWICE OVER
    never raises; a module that is down is named in `degraded` and the reply
    says what it could not check rather than inventing an answer.
 
-Run standalone:      uvicorn chat_assistant:app --port 8007
+Run standalone:      uvicorn chatbot:app --port 8007
 Needs:               fastapi  uvicorn  pydantic  httpx
 Env:                 PORT, CHAT_API_KEY, OLLAMA_URL, OLLAMA_MODEL,
                      BIN_REPORTING_URL, ANALYTICS_URL, WORKER_DASHBOARD_URL,
@@ -134,7 +134,11 @@ class Store:
 # one that must NEVER show a stack trace to a member of the public.
 # ---------------------------------------------------------------------------
 BIN_REPORTING_URL = os.getenv("BIN_REPORTING_URL", "")
+WASTE_RECOGNITION_URL = os.getenv("WASTE_RECOGNITION_URL", "")
+ROUTE_OPTIMIZER_URL = os.getenv("ROUTE_OPTIMIZER_URL", "")
 ANALYTICS_URL = os.getenv("ANALYTICS_URL", "")
+NOTIFICATION_URL = os.getenv("NOTIFICATION_URL", "")
+NOTIFY_API_KEY = os.getenv("NOTIFY_API_KEY", "dev-signalpost-key")
 WORKER_DASHBOARD_URL = os.getenv("WORKER_DASHBOARD_URL", "")
 CREW_AUTH_TOKEN = os.getenv("CREW_AUTH_TOKEN", "dev-fieldops-token")
 TIMEOUT_S = float(os.getenv("DEPENDENCY_TIMEOUT_MS", "2500")) / 1000
@@ -161,12 +165,67 @@ async def _request(method: str, url: str, timeout: float = None, **kw) -> dict:
         return {"ok": False, "reason": "unreachable"}
 
 
-async def report_bin(location: dict, notes: Optional[str]) -> dict:
+def _crew_headers() -> dict:
+    return {"Authorization": f"Bearer {CREW_AUTH_TOKEN}"}   # FieldOps' scheme
+
+
+async def report_bin(location: dict, notes: Optional[str],
+                     image: Optional[str] = None) -> dict:
+    """-> bin_reporting POST /report"""
     if not BIN_REPORTING_URL:
         return {"ok": False, "reason": "not_configured"}
-    return await _request("POST", f"{BIN_REPORTING_URL}/reportBin",
+    return await _request("POST", f"{BIN_REPORTING_URL}/report",
                           json={"lat": location["lat"], "lng": location["lng"],
-                                "notes": notes, "reporter_name": "Chat user"})
+                                "image": image, "notes": notes,
+                                "reporter_name": "Chat user"})
+
+
+async def detect_waste(image_base64: str, reference: Optional[str] = None) -> dict:
+    """-> waste_recognition POST /detect.
+
+    Image-keyed, because that module is a stateless leaf that never sees bin
+    records. For a bin id the caller wants bin_reporting POST /detect instead,
+    which owns the record and caches.
+    """
+    if not WASTE_RECOGNITION_URL:
+        return {"ok": False, "reason": "not_configured"}
+    return await _request("POST", f"{WASTE_RECOGNITION_URL}/detect",
+                          json={"image_base64": image_base64, "reference": reference})
+
+
+async def optimize_stops(bins: list, start: Optional[dict] = None) -> dict:
+    """-> route_optimizer POST /optimize"""
+    if not ROUTE_OPTIMIZER_URL:
+        return {"ok": False, "reason": "not_configured"}
+    payload: dict[str, Any] = {"bins": bins}
+    if start:
+        payload["start"] = start
+    return await _request("POST", f"{ROUTE_OPTIMIZER_URL}/optimize", json=payload)
+
+
+async def notify_pickup(bin_id: str, recipient_type: str = "citizen",
+                        message: Optional[str] = None) -> dict:
+    """-> notification_system POST /pickup, with SignalPost's X-API-Key."""
+    if not NOTIFICATION_URL:
+        return {"ok": False, "reason": "not_configured"}
+    return await _request("POST", f"{NOTIFICATION_URL}/pickup",
+                          headers={"X-API-Key": NOTIFY_API_KEY},
+                          json={"binId": bin_id, "recipient_type": recipient_type,
+                                "message": message})
+
+
+async def assign_worker(bin_id: str, worker_id: Optional[str] = None,
+                        location: Optional[dict] = None) -> dict:
+    """-> worker_dashboard POST /assign, with FieldOps' Bearer token."""
+    if not WORKER_DASHBOARD_URL:
+        return {"ok": False, "reason": "not_configured"}
+    payload: dict[str, Any] = {"binId": bin_id}
+    if worker_id:
+        payload["workerId"] = worker_id
+    if location:
+        payload["location"] = location
+    return await _request("POST", f"{WORKER_DASHBOARD_URL}/assign",
+                          headers=_crew_headers(), json=payload)
 
 
 async def get_report(bin_id: str) -> dict:
@@ -186,10 +245,6 @@ async def get_analytics() -> dict:
     if not ANALYTICS_URL:
         return {"ok": False, "reason": "not_configured"}
     return await _request("GET", f"{ANALYTICS_URL}/analytics")
-
-
-def _crew_headers() -> dict:
-    return {"Authorization": f"Bearer {CREW_AUTH_TOKEN}"}   # FieldOps' scheme
 
 
 async def list_workers() -> dict:
@@ -240,7 +295,10 @@ async def rephrase(persona_prompt: str) -> dict:
 def dependency_config() -> dict:
     return {
         "bin_reporting": BIN_REPORTING_URL or None,
+        "waste_recognition": WASTE_RECOGNITION_URL or None,
+        "route_optimizer": ROUTE_OPTIMIZER_URL or None,
         "analytics_dashboard": ANALYTICS_URL or None,
+        "notification_system": NOTIFICATION_URL or None,
         "worker_dashboard": WORKER_DASHBOARD_URL or None,
         "llm": OLLAMA_URL or None,
         "llm_model": OLLAMA_MODEL if OLLAMA_URL else None,
@@ -280,6 +338,12 @@ INTENTS = {
                       "optimi"),
     "worker":        ("worker", "crew", "staff", "who is", "who's", "assigned to",
                       "assignment", "collector"),
+    "assign_worker": ("assign", "put", "send", "give it to", "reassign",
+                      "dispatch", "hand it to"),
+    "notify":        ("notify", "tell the", "let them know", "let the", "alert",
+                      "message the", "send an alert", "inform", "know about"),
+    "identify":      ("what kind", "what type", "identify", "classify",
+                      "what waste", "recognise", "recognize"),
     "help":          ("help", "what can you", "hi", "hello", "hey", "start", "menu"),
 }
 
@@ -287,6 +351,11 @@ INTENTS = {
 # assistant that answers anything is a liability on a council's website.
 SCOPE_HINT = ("bins", "pickups", "collection routes", "crew assignments",
               "and the collection numbers")
+
+
+# Actions before lookups; `help` last so a greeting never outranks a real ask.
+INTENT_PRIORITY = ("report_bin", "assign_worker", "notify", "identify",
+                   "pickup_status", "analytics", "route", "worker", "help")
 
 
 def _matches(keyword: str, text: str) -> bool:
@@ -306,19 +375,37 @@ def _matches(keyword: str, text: str) -> bool:
 
 def detect_intent(message: str) -> str:
     text = message.lower()
-    if BIN_ID_RE.search(message) and not any(
-            _matches(k, text) for k in INTENTS["route"] + INTENTS["worker"]):
-        # A bare bin id is almost always "what is happening with this one".
-        return "pickup_status"
     scores = {name: sum(1 for kw in kws if _matches(kw, text))
               for name, kws in INTENTS.items()}
-    best = max(scores, key=lambda k: scores[k])
-    if scores[best] == 0:
-        return "offtopic"
-    # "report" beats a bare greeting when both appear.
-    if scores["report_bin"] and best == "help":
-        return "report_bin"
+    # On a tie the VERB beats the NOUN. "notify the crew about bin_x" scores
+    # once for notify and once for crew; it is a request to send something, not
+    # a question about the crew. Actions are therefore ranked ahead of lookups.
+    top = max(scores.values())
+    best = next(name for name in INTENT_PRIORITY if scores[name] == top)
+
+    if top == 0:
+        # Nothing asked for explicitly. A bare bin id is almost always "what is
+        # happening with this one".
+        #
+        # This test runs LAST, not first. Run first — against a hardcoded list
+        # of intents allowed to override it — it swallowed every new verb: once
+        # `notify` and `assign_worker` existed, "assign Ravi to bin_x" and
+        # "alert the supervisor about bin_x" both came back as status lookups,
+        # because they mentioned a bin. Scoring first and falling back second
+        # means a new intent can never be shadowed by this rule again.
+        return "pickup_status" if BIN_ID_RE.search(message) else "offtopic"
+
     return best
+
+
+def extract_locations(message: str) -> list[dict]:
+    """Every coordinate pair in the message, in order."""
+    out = []
+    for lat, lng in LATLNG_RE.findall(message):
+        lat, lng = float(lat), float(lng)
+        if abs(lat) <= 90 and abs(lng) <= 180:
+            out.append({"lat": lat, "lng": lng})
+    return out
 
 
 def extract_location(message: str) -> Optional[dict]:
@@ -339,7 +426,7 @@ def _plural(n: int, word: str) -> str:
     return word if n == 1 else word + "s"
 
 
-async def handle(message: str) -> dict:
+async def handle(message: str, image: Optional[str] = None) -> dict:
     """Route one message. Returns {intent, reply, data, degraded}.
 
     Every branch answers from module data or says plainly that it could not
@@ -347,6 +434,10 @@ async def handle(message: str) -> dict:
     "never invent" rule, kept, and now enforceable because real numbers exist.
     """
     intent = detect_intent(message)
+    # A photo with no obvious question is a report if it carries a location,
+    # and an identification request otherwise.
+    if image and intent == "offtopic":
+        intent = "report_bin" if extract_location(message) else "identify"
     degraded: dict[str, str] = {}
     data: dict[str, Any] = {}
 
@@ -359,7 +450,7 @@ async def handle(message: str) -> dict:
                     "reply": ("I can log that. Whereabouts is the bin? Send me "
                               'coordinates as "lat,lng" — for example '
                               '"there is an overflowing bin at 12.972,77.595".')}
-        result = await report_bin(location, notes=message[:200])
+        result = await report_bin(location, notes=message[:200], image=image)
         if not result["ok"]:
             degraded["bin_reporting"] = result["reason"]
             return {"intent": intent, "data": data, "degraded": degraded,
@@ -487,7 +578,117 @@ async def handle(message: str) -> dict:
                           f"{k['notifications_sent']} "
                           f"{_plural(k['notifications_sent'], 'notification')} sent.{top}")}
 
+    # ------------------------------------- classify a photo (waste_recognition)
+    if intent == "identify":
+        if not image:
+            return {"intent": intent, "data": {"awaiting": "image"}, "degraded": None,
+                    "reply": ("Send me a photo of it and I will tell you what kind "
+                              "of waste it is. Attach it as `image` on your message.")}
+        result = await detect_waste(image)
+        if not result["ok"]:
+            degraded["waste_recognition"] = result["reason"]
+            return {"intent": intent, "data": data, "degraded": degraded,
+                    "reply": ("The classifier is not answering, so I cannot identify "
+                              "that right now.")}
+        d = result["data"]
+        data = d
+        alts = ", ".join(a["label"] for a in d.get("alternatives", [])) or "nothing else"
+        return {"intent": intent, "data": data, "degraded": None,
+                "reply": (f"That looks like {d['label'].lower()} — "
+                          f"{round(d['confidence'] * 100)}% confident. "
+                          f"{'Recyclable.' if d['recyclable'] else 'Not recyclable.'}"
+                          f"{' Handle as hazardous.' if d['hazardous'] else ''} "
+                          f"Next most likely: {alts}.")}
+
+    # -------------------------------------- notify someone (notification_system)
+    if intent == "notify":
+        match = BIN_ID_RE.search(message)
+        if not match:
+            return {"intent": intent, "data": {"awaiting": "bin_id"}, "degraded": None,
+                    "reply": ("Which bin should I send the alert about? Give me its "
+                              "reference, like bin_1a2b3c4d5e6f.")}
+        who = "worker" if "worker" in message.lower() or "crew" in message.lower() else (
+              "admin" if "admin" in message.lower() or "supervisor" in message.lower()
+              else "citizen")
+        result = await notify_pickup(match.group(0), recipient_type=who)
+        if not result["ok"]:
+            degraded["notification_system"] = result["reason"]
+            return {"intent": intent, "data": data, "degraded": degraded,
+                    "reply": "The notification service is not answering, so nothing was sent."}
+        d = result["data"]
+        data = d
+        delivered = d.get("delivery_status") == "delivered"
+        return {"intent": intent, "data": data, "degraded": None,
+                "reply": (f"{'Sent' if delivered else 'Queued'} to the {d['recipient']} "
+                          f"for {d['binId']} — reference {d['messageId']}."
+                          + ("" if delivered else
+                             f" Only in-app delivers on this build, so it is sitting as "
+                             f"{d['delivery_status']}."))}
+
+    # ------------------------------------------ assign a worker (worker_dashboard)
+    if intent == "assign_worker":
+        bin_match = BIN_ID_RE.search(message)
+        if not bin_match:
+            return {"intent": intent, "data": {"awaiting": "bin_id"}, "degraded": None,
+                    "reply": ("Which bin? Give me its reference — for example "
+                              '"assign Asha to bin_1a2b3c4d5e6f".')}
+        bin_id = bin_match.group(0)
+
+        # Resolve a name to an id: people say "Asha", not "wrk_5959cf3464df".
+        worker_id = None
+        wid_match = WORKER_ID_RE.search(message)
+        if wid_match:
+            worker_id = wid_match.group(0)
+        else:
+            crew = await list_workers()
+            if crew["ok"]:
+                named = next((w for w in crew["data"]["workers"]
+                              if w["name"].split()[0].lower() in message.lower()), None)
+                worker_id = named["id"] if named else None
+            else:
+                degraded["worker_dashboard"] = crew["reason"]
+
+        result = await assign_worker(bin_id, worker_id, extract_location(message))
+        if not result["ok"]:
+            degraded["worker_dashboard"] = result["reason"]
+            hint = ""
+            if result["reason"] == "upstream_400":
+                # The optimizer cannot resolve a bin id to coordinates, and nor
+                # can the crew system — a brand-new job needs a location.
+                hint = (" If this bin has not been reported yet I need its "
+                        'coordinates too, as "lat,lng".')
+            elif result["reason"] == "upstream_409":
+                hint = " It may already be assigned to them."
+            return {"intent": intent, "data": data, "degraded": degraded,
+                    "reply": f"I could not make that assignment.{hint}"}
+        d = result["data"]
+        data = d
+        moved = f" Taken off {d['reassignedFrom']}." if d.get("reassignedFrom") else ""
+        return {"intent": intent, "data": data, "degraded": degraded or None,
+                "reply": (f"{d['workerName']} now has {d['binId']} — {d['status']}, "
+                          f"{_km(d.get('distance_km'))} away ({d['mode']}).{moved}")}
+
     # ------------------------------------------------------ routes / workers
+    if intent == "route" and len(extract_locations(message)) >= 2:
+        # Coordinates in hand: plan them directly rather than going via a crew
+        # round. This is the only path that touches route_optimizer without
+        # worker_dashboard in the middle.
+        points = extract_locations(message)
+        result = await optimize_stops(points)
+        if not result["ok"]:
+            degraded["route_optimizer"] = result["reason"]
+            return {"intent": "route", "data": {"points": points}, "degraded": degraded,
+                    "reply": "The route planner is not answering, so I cannot sequence those."}
+        d = result["data"]
+        data = d
+        lines = [f"  {s['sequence']}. {s['location']['lat']},{s['location']['lng']} "
+                 f"— {_km(s['leg_distance_km'])}" for s in d["stops"]]
+        saved = (f" 2-opt saved {d['improvement_km']} km over the greedy order."
+                 if d.get("improvement_km") else "")
+        return {"intent": "route", "data": data, "degraded": None,
+                "reply": (f"Best order for those {len(points)} stops — "
+                          f"{_km(d['total_distance_km'])} total.{saved}\n" + "\n".join(lines))}
+
     if intent in ("route", "worker"):
         workers = await list_workers()
         if not workers["ok"]:
@@ -564,7 +765,8 @@ async def handle(message: str) -> dict:
                           '  · report a bin — "overflowing bin at 12.972,77.595"\n'
                           '  · check a pickup — "what is happening with bin_1a2b3c4d5e6f"\n'
                           '  · see the numbers — "how are we doing this week"\n'
-                          '  · crews and routes — "what is on Asha\'s round"')}
+                          '  · crews and routes — "what is on Asha\'s round"\n'
+                          '  · assign or notify — "assign Asha to bin_1a2b3c4d5e6f"')}
 
     return {"intent": "offtopic", "data": {}, "degraded": None,
             "reply": (f"I look after {', '.join(SCOPE_HINT[:-1])} {SCOPE_HINT[-1]}. "
@@ -660,14 +862,20 @@ def require_api_key(x_api_key: Optional[str] = Header(None)):
 
 
 class ChatRequest(BaseModel):
-    """The vendor's request shape, unchanged."""
+    """The vendor's request shape, plus one additive optional field.
+
+    `image` lets a citizen attach a photo to a report or ask what something is,
+    which is what reaches waste_recognition. A client written against the
+    acquired API never sends it and is unaffected.
+    """
     message: str
     history: list = Field(default_factory=list)
+    image: Optional[str] = Field(None, description="base64 photo, optional")
 
 
 @router.get("/health")
 def health():
-    return {"ok": True, "module": "chat_assistant", "version": APP_VERSION,
+    return {"ok": True, "module": "chatbot", "version": APP_VERSION,
             "vendor": VENDOR, "llm_required": False,
             "dependencies": dependency_config()}
 
@@ -682,6 +890,9 @@ def intents(_=Depends(require_api_key)):
                 "analytics": "how are we doing this week",
                 "route": "what is on Asha's round",
                 "worker": "who is assigned to bin_1a2b3c4d5e6f",
+                "assign_worker": "assign Asha to bin_1a2b3c4d5e6f",
+                "notify": "let the resident know about bin_1a2b3c4d5e6f",
+                "identify": "what kind of waste is this (with image)",
             }}
 
 
@@ -703,7 +914,7 @@ async def chat(request: ChatRequest, _=Depends(require_api_key)):
 
     history = request.history[-MAX_HISTORY_TURNS:] if request.history else []
 
-    outcome = await handle(message)
+    outcome = await handle(message, request.image)
     draft = outcome["reply"]
     degraded = dict(outcome["degraded"] or {})
 
@@ -752,7 +963,7 @@ def conversations(limit: int = 50, _=Depends(require_api_key)):
 #   router — mount into any FastAPI app:
 #              app.include_router(router, prefix="/chat")
 #   app    — run this module as its own service:
-#              uvicorn chat_assistant:app --port 8007
+#              uvicorn chatbot:app --port 8007
 app = FastAPI(title=f"{VENDOR} — waste collection assistant", version=APP_VERSION)
 app.include_router(router)
 

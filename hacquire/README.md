@@ -66,7 +66,7 @@ uvicorn main:app --reload           # http://localhost:8000
 | `POST /bin/detect` | `{binId}` → `{type}` — short form |
 | `POST /bin/detectWasteType` | `{binId}` → `{type}` |
 | `POST /waste/detect` | `{image_base64}` → `{type}` — the classifier itself |
-| `GET  /route/optimizeRoute?bins=[...]` | ordered route |
+| `POST /route/optimize` · `GET /route/optimizeRoute?bins=[...]` | ordered route |
 | `GET  /analytics/analytics` | chart-ready data |
 | `POST /notify/pickup` | alert the citizen — short form |
 | `POST /notify/notifyPickup` | alert the citizen — full form |
@@ -111,7 +111,7 @@ own base paths, auth schemes and error envelopes underneath their prefix.
 | `analytics_dashboard` | 8004 | **SOLD** $35,000 |
 | `notification_system` | 8005 | **BOUGHT** — SignalPost Relay 2.4.1 |
 | `worker_dashboard` | 8006 | **BOUGHT** — FieldOps Crew 3.1.0 |
-| `chat_assistant` | 8007 | **BOUGHT** — Suvida Chatbot |
+| `chatbot` | 8007 | **BOUGHT** — Suvida Chatbot |
 
 ## Verify the pipeline
 
@@ -147,7 +147,7 @@ was skipped and why.
 
 ## Talking to it
 
-`chat_assistant` is the conversational front door — report a bin, chase a
+`chatbot` is the conversational front door — report a bin, chase a
 pickup, read the numbers, ask who is on a round.
 
 ```bash
@@ -157,14 +157,21 @@ curl -X POST localhost:8007/chat -H "X-API-Key: dev-suvida-key" \
 # → "Logged — reference bin_f4f67b11bac5. Asha Kumar has been assigned."
 ```
 
-| You say | It does |
+It reaches **every other module** — the only component that does:
+
+| You say | It calls |
 |---|---|
-| "overflowing bin at 12.972,77.595" | files it through `bin_reporting`, classifies, dispatches |
-| "has bin_f4f6… been collected" | reads `bin_reporting` **and** `worker_dashboard`, reconciles |
-| "how are we doing this week" | pulls live KPIs from `analytics_dashboard` |
-| "what is on Asha's round" | sequenced stops via `worker_dashboard` → `route_optimizer` |
-| "who is assigned to bin_f4f6…" | the crew record for that job |
+| "overflowing bin at 12.972,77.595" *(+ optional `image`)* | `POST /bin/report` |
+| "what kind of waste is this" *(+ `image`)* | `POST /waste/detect` |
+| "plan a route for 12.95,77.62 and 13.00,77.57 …" | `POST /route/optimize` |
+| "how are we doing this week" | `GET /analytics` |
+| "let the resident know about bin_f4f6…" | `POST /notify/pickup` |
+| "assign Ravi to bin_f4f6…" | `POST /worker/assign` |
+| "has bin_f4f6… been collected" | `/bin` **and** `/worker`, reconciled |
+| "what is on Asha's round" | `/worker` queue → `/route` |
 | anything else | declines, and says what it does cover |
+
+Nine intents, routed deterministically — **21/21** on the routing test set.
 
 **No LLM required.** Intent routing and every answer are deterministic; a
 local model only rephrases, and only if `OLLAMA_URL` is set. With it unset —
@@ -195,15 +202,22 @@ reach in `degraded`.
    skipped. It never fails the pipeline. *Verified:* with no routing provider
    reachable at all, the queue still returned all four stops with
    `optimized:false, degraded_reason:"unreachable"`.
-5. **An acquired module is re-personed, not re-plumbed.** `chat_assistant`
+5. **An acquired module is re-personed, not re-plumbed.** `chatbot`
    was bought as a *public-transport* assistant (`AniketCodes76/suvida_chatbot`
    — bus 2, train 2, metro 1, waste 0). Its API contract is kept exactly
    (`POST /chat`, `X-API-Key`, `{message, history}` → `{reply}`); only the
    persona is replaced, and the original transport prompt is preserved in
-   `modules/chat_assistant/mocks/vendor_prompt_transport.txt` because it is the
+   `modules/chatbot/mocks/vendor_prompt_transport.txt` because it is the
    part of that asset with resale value to a transit operator.
 
-6. **Acquired modules keep vendor conventions.** `notification_system` and
+6. **A verb outranks a noun, and a fallback runs last.** Intent routing is
+   keyword-scored, and two ordering bugs are worth remembering: a bin-id
+   fallback that ran *first* swallowed every new verb ("assign Ravi to
+   bin_x" came back as a status lookup), and a tie between `notify` and
+   `worker` sent "notify the crew" to the crew list. The fallback now runs
+   last and actions outrank lookups.
+
+7. **Acquired modules keep vendor conventions.** `notification_system` and
    `worker_dashboard` retain their original base paths, auth schemes, casing
    and error envelopes — normalising them would break existing SDKs and
    destroy resale value. Adaptation is carried at the call site.
@@ -215,7 +229,7 @@ reach in `degraded`.
    missing / 403 wrong credentials, in `{"error":{"code","message"}}` for
    SignalPost and flat `{"error","detail"}` for FieldOps.
 
-7. **Inherited security defects are fixed at intake.** The acquired chatbot
+8. **Inherited security defects are fixed at intake.** The acquired chatbot
    authenticated with `x_api_key != os.getenv("API_KEY")`. Unset env var →
    `None`; absent header → `None`; `None != None` is `False` — so a fresh
    clone, which has no `.env`, let *unauthenticated* callers through. Verified
