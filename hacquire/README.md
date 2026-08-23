@@ -90,6 +90,10 @@ uvicorn main:app --reload           # http://localhost:8000
 | `POST /chat/chat` | talk to the network in plain language |
 | `GET  /` | the registry and the full path map |
 
+Every module also answers `GET /` with an index — name, version, trading
+position, and its routes with the right prefixes for however it is running.
+`/docs` is the interactive API browser.
+
 **Seven processes** — one service per port, the shape the trading positions
 assume:
 
