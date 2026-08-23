@@ -1,0 +1,32 @@
+{
+  "name": "chatbot",
+  "version": "1.0.0",
+  "port": 8007,
+  "position": "BOUGHT",
+  "vendor": {
+    "name": "Suvida Chatbot",
+    "source": "AniketCodes76/suvida_chatbot",
+    "commit": "e207819",
+    "acquired_as": "public-transport assistant (TravelBuddy)",
+    "repersoned_to": "waste collection"
+  },
+  "entrypoint": { "file": "chatbot.py", "app": "chatbot:app", "router": "chatbot:router" },
+  "runtime": { "python": ">=3.10", "packages": ["fastapi", "uvicorn", "pydantic", "httpx"] },
+  "provides": [
+    { "capability": "chat.converse", "endpoint": "POST /chat", "auth": "X-API-Key" },
+    { "capability": "chat.intents",  "endpoint": "GET /intents", "auth": "X-API-Key" }
+  ],
+  "consumes": [
+    { "capability": "bin.report",       "env": "BIN_REPORTING_URL",     "required": false },
+    { "capability": "waste.classify",   "env": "WASTE_RECOGNITION_URL", "required": false },
+    { "capability": "route.optimize",   "env": "ROUTE_OPTIMIZER_URL",   "required": false },
+    { "capability": "analytics.read",   "env": "ANALYTICS_URL",         "required": false },
+    { "capability": "notify.send",      "env": "NOTIFICATION_URL",      "required": false },
+    { "capability": "workforce.dispatch","env": "WORKER_DASHBOARD_URL", "required": false },
+    { "capability": "llm.generate",     "env": "OLLAMA_URL",            "required": false }
+  ],
+  "required_dependencies": [],
+  "degradation": "Every dependency is optional. With none configured the module serves help, rejects unauthenticated calls, and answers each request by naming the capability it lacks and the variable to set.",
+  "isolation": { "cross_module_imports": 0, "relative_imports": 0, "shared_database": false },
+  "transfer": { "artifact": "modules/chatbot/", "files": 4, "licence": "LICENSE" }
+}

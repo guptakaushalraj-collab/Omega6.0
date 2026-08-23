@@ -448,6 +448,29 @@ def _plural(n: int, word: str) -> str:
     return word if n == 1 else word + "s"
 
 
+# Env var to set, per capability — named in the reply so a new owner is told
+# what to do rather than what is broken.
+CAPABILITY_ENV = {
+    "bin_reporting": "BIN_REPORTING_URL", "waste_recognition": "WASTE_RECOGNITION_URL",
+    "route_optimizer": "ROUTE_OPTIMIZER_URL", "analytics_dashboard": "ANALYTICS_URL",
+    "notification_system": "NOTIFICATION_URL", "worker_dashboard": "WORKER_DASHBOARD_URL",
+}
+
+
+def _unavailable(module: str, human: str, reason: str) -> str:
+    """Phrase a missing dependency.
+
+    NOT CONFIGURED IS NOT AN OUTAGE. A buyer running this module on its own has
+    wired nothing up yet; telling them the service "is not answering" sends
+    them hunting for a fault that does not exist. Name the variable instead.
+    """
+    if reason == "not_configured":
+        return (f"I am not connected to {human} yet — no provider is configured. "
+                f"Point {CAPABILITY_ENV.get(module, 'the relevant URL')} at one "
+                f"and I will start answering these.")
+    return f"{human[0].upper()}{human[1:]} is not answering just now."
+
+
 PARSER_PROMPT = """You classify messages sent to a city waste-collection assistant.
 
 Reply with ONE line of JSON and nothing else:
@@ -571,9 +594,8 @@ async def handle(message: str, image: Optional[str] = None,
         if not result["ok"]:
             degraded["bin_reporting"] = result["reason"]
             return {"intent": intent, "data": data, "degraded": degraded,
-                    "reply": ("I could not file that just now — the reporting "
-                              "service is not answering. Nothing was lost on your "
-                              "side; please try again in a moment.")}
+                    "reply": _unavailable("bin_reporting", "bin reporting", result["reason"])
+                              + " Nothing was lost on your side."}
         d = result["data"]
         data = d
         bits = [f"Logged — reference {d['binId']}."]
@@ -597,8 +619,8 @@ async def handle(message: str, image: Optional[str] = None,
             if not recent["ok"]:
                 degraded["bin_reporting"] = recent["reason"]
                 return {"intent": intent, "data": data, "degraded": degraded,
-                        "reply": ("I cannot reach the reporting service to look "
-                                  "that up. Try again shortly.")}
+                        "reply": _unavailable("bin_reporting", "bin reporting",
+                                              recent["reason"])}
             reports = recent["data"]["reports"]
             data = {"recent": reports}
             if not reports:
@@ -617,8 +639,8 @@ async def handle(message: str, image: Optional[str] = None,
                         "reply": f"I have no record of {bin_id}. Could it be a typo?"}
             degraded["bin_reporting"] = report["reason"]
             return {"intent": intent, "data": data, "degraded": degraded,
-                    "reply": ("I cannot reach the reporting service to check that. "
-                              "Try again shortly.")}
+                    "reply": _unavailable("bin_reporting", "bin reporting",
+                                          report["reason"])}
         r = report["data"]
         data = {"report": r}
 
@@ -677,9 +699,9 @@ async def handle(message: str, image: Optional[str] = None,
         if not result["ok"]:
             degraded["analytics_dashboard"] = result["reason"]
             return {"intent": intent, "data": data, "degraded": degraded,
-                    "reply": ("The analytics service is not answering, so I have "
-                              "no figures to give you. I would rather say that "
-                              "than guess.")}
+                    "reply": _unavailable("analytics_dashboard", "the analytics service",
+                                          result["reason"])
+                              + " I would rather say that than guess at figures."}
         k = result["data"]["kpis"]
         data = {"kpis": k, "charts": list(result["data"]["charts"])}
         mix = result["data"]["charts"]["waste_mix"]
@@ -705,8 +727,8 @@ async def handle(message: str, image: Optional[str] = None,
         if not result["ok"]:
             degraded["waste_recognition"] = result["reason"]
             return {"intent": intent, "data": data, "degraded": degraded,
-                    "reply": ("The classifier is not answering, so I cannot identify "
-                              "that right now.")}
+                    "reply": _unavailable("waste_recognition", "the waste classifier",
+                                          result["reason"])}
         d = result["data"]
         data = d
         alts = ", ".join(a["label"] for a in d.get("alternatives", [])) or "nothing else"
@@ -731,7 +753,8 @@ async def handle(message: str, image: Optional[str] = None,
         if not result["ok"]:
             degraded["notification_system"] = result["reason"]
             return {"intent": intent, "data": data, "degraded": degraded,
-                    "reply": "The notification service is not answering, so nothing was sent."}
+                    "reply": _unavailable("notification_system", "the notification service",
+                                          result["reason"]) + " Nothing was sent."}
         d = result["data"]
         data = d
         delivered = d.get("delivery_status") == "delivered"
@@ -795,7 +818,8 @@ async def handle(message: str, image: Optional[str] = None,
         if not result["ok"]:
             degraded["route_optimizer"] = result["reason"]
             return {"intent": "route", "data": {"points": points}, "degraded": degraded,
-                    "reply": "The route planner is not answering, so I cannot sequence those."}
+                    "reply": _unavailable("route_optimizer", "the route planner",
+                                          result["reason"])}
         d = result["data"]
         data = d
         lines = [f"  {s['sequence']}. {s['location']['lat']},{s['location']['lng']} "
@@ -811,8 +835,8 @@ async def handle(message: str, image: Optional[str] = None,
         if not workers["ok"]:
             degraded["worker_dashboard"] = workers["reason"]
             return {"intent": intent, "data": data, "degraded": degraded,
-                    "reply": ("I cannot reach the crew system just now, so I "
-                              "cannot tell you who is where.")}
+                    "reply": _unavailable("worker_dashboard", "the crew system",
+                                          workers["reason"])}
         crew = workers["data"]["workers"]
         data = {"workers": crew}
         if not crew:

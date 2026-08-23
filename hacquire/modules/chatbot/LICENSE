@@ -1,0 +1,66 @@
+COMMERCIAL SOFTWARE LICENCE — chatbot (Suvida Chatbot derivative)
+Intelligent Waste Collection Network · HACQUIRE 2026
+
+1. ORIGIN AND CHAIN OF TITLE
+
+   This module derives from the Suvida Chatbot, acquired from
+   AniketCodes76/suvida_chatbot at commit e207819. The acquisition covered
+   the FastAPI service shell, the /chat request/response contract, and the
+   local-LLM integration pattern.
+
+   Any onward transfer must disclose that chain of title. A buyer acquires
+   this derivative work and whatever rights the seller holds in the
+   underlying acquisition — no more. Verify the upstream licence terms
+   independently before relying on them.
+
+2. GRANT
+
+   Perpetual, worldwide, non-exclusive licence to use, modify, host and
+   sublicense this module and its accompanying files, including for
+   commercial purposes.
+
+3. TRANSFERABILITY
+
+   This licence is assignable in whole to a successor in interest, once,
+   on written notice. Nothing in this module depends on any other module
+   in the registry: dependencies are reached over HTTP at URLs supplied by
+   environment variable, and every one of them degrades. Transfer requires
+   no code change on either side.
+
+4. WHAT IS AND IS NOT INCLUDED
+
+   INCLUDED
+     · chatbot.py — the whole module: datastore, adapters, HTTP surface
+     · mocks/vendor_prompt_transport.txt — the original TravelBuddy
+       public-transport persona, preserved verbatim from the acquisition.
+       It has standalone value to a transit operator and is conveyed with
+       this licence.
+     · mocks/conversations.json — sample audit records
+
+   NOT INCLUDED
+     · Any language model, model weights, or Ollama installation. The LLM
+       is optional; with OLLAMA_URL unset the module is fully functional
+       using deterministic intent routing and templated replies.
+     · The other six modules of the network, or any right to them.
+     · Operational data. No datastore, uploads directory or .env file
+       forms part of a transfer.
+
+5. DISCLOSED DEFECT, REMEDIED
+
+   The acquired code authenticated with `x_api_key != os.getenv("API_KEY")`
+   and no fallback. With the variable unset — the state of any fresh
+   clone — both sides evaluated to None and unauthenticated callers were
+   admitted. This build fails closed. A buyer inheriting any other fork of
+   the upstream project should assume the defect is present in it.
+
+6. CREDENTIALS
+
+   The default key `dev-suvida-key` is public knowledge: it is the
+   fallback compiled into the source so a fresh clone runs. It is a
+   development convenience and not a security control. Change CHAT_API_KEY
+   before exposing this service beyond localhost.
+
+7. WARRANTY
+
+   Provided "as is", without warranty of any kind. The seller warrants
+   only that it has the right to grant this licence.

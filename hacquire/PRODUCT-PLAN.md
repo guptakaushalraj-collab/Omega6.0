@@ -93,13 +93,17 @@ hacquire/                                   PROJECT ROOT
 │       │                                   module, at the call site.
 │       └── mocks/{workers,assignments}.json
 │   │
-│   └── chatbot/
+│   └── chatbot/                            TRANSFER-READY — 4 files, no repo
 │       ├── chatbot.py                      :8007  BOUGHT — Suvida Chatbot
 │       │                                   Conversational front door. Reaches
 │       │                                   ALL SIX other modules over HTTP —
 │       │                                   the only component that does. A
 │       │                                   local LLM only rephrases, and is
 │       │                                   entirely optional.
+│       ├── LICENSE                         Chain of title from the acquisition,
+│       │                                   what transfers, disclosed defect
+│       ├── module.json                     Manifest: provides / consumes /
+│       │                                   required_dependencies: []
 │       └── mocks/
 │           ├── conversations.json
 │           └── vendor_prompt_transport.txt PRESERVED vendor asset — the
@@ -626,11 +630,10 @@ curl -X POST localhost:8007/chat -H "X-API-Key: dev-suvida-key" \
 }
 ```
 
-A client that only knows the acquired vendor's API reads `reply` and ignores
-the rest. A UI reads `data.kpis` for tiles and `data.charts` for graphs.
-`endpoint` says which API produced it, `parser` whether the LLM or the keyword
-fallback classified the message, and `degraded` is `null` only when every step
-succeeded.
+`reply` is the vendor contract — an existing client reads it and ignores the
+rest. `data.kpis` drives tiles, `data.charts` drives graphs, `endpoint` names
+the API that answered, `parser` says LLM or keyword, and `degraded` is `null`
+only when every step succeeded.
 
 
 ```bash
@@ -676,21 +679,23 @@ The assistant reaches **every other module**; nothing else in the network does:
 | `worker` | `/worker` workers / assignments | "who is assigned to bin_f4f6…" |
 | `help` · `offtopic` | answered locally | — |
 
-**The model proposes; the module disposes.** The LLM's answer is validated
-against the known intent set — asked for `delete_everything`, the parse is
-rejected and keywords take over, with the reason in `degraded.intent_parser`.
-And it *classifies only*: ids and coordinates are always regex-extracted,
-because a model that gets one hex digit wrong in `bin_eb6f4a5ad6c7` produces a
+**The model proposes; the module disposes.** Its answer is validated against
+the known intent set, and it classifies only — ids and coordinates are always
+regex-extracted, because one wrong hex digit in `bin_eb6f4a5ad6c7` is a
 confident lookup of the wrong bin that nothing downstream can catch. Exercised
-against a stub speaking Ollama's API: paraphrase with no keyword overlap parsed
-correctly, fenced JSON recovered, garbage and hallucinated intents rejected,
-and the model going away mid-conversation degraded to keywords.
+against a stub speaking Ollama's API:
 
-**"Check pickup" is a READ.** It maps to `bin_reporting` + `worker_dashboard`,
-never to `POST /notify/pickup` — that endpoint messages the citizen, and
-wiring a status question to it would text a resident every time someone asked
-whether their bin had been emptied. Verified: three status questions, zero
-notifications sent.
+| Case | Result |
+|---|---|
+| paraphrase, no keyword overlap | parsed correctly via LLM |
+| fenced ```` ```json ```` output | recovered |
+| prose instead of JSON | rejected → keywords, `unparseable` |
+| hallucinated `delete_everything` | rejected → keywords, `invalid_intent` |
+| model killed mid-conversation | degraded to keywords, reason named |
+
+**"Check pickup" is a READ** — `bin_reporting` + `worker_dashboard`, never
+`POST /notify/pickup`, which messages the citizen. Verified: three status
+questions, zero notifications sent.
 
 Each mapping was verified server-side rather than from the reply text: the bin record
 and stored photo in `bin_reporting`, a logged classification in
@@ -698,12 +703,10 @@ and stored photo in `bin_reporting`, a logged classification in
 counts in `analytics_dashboard`, the messages in `notification_system`, and
 the assignment in `worker_dashboard`.
 
-**Two routing-order bugs, both worth recording.** A bin-id fallback that ran
-*first* swallowed every new verb — once `notify` and `assign_worker` existed,
-"assign Ravi to bin_x" came back as a status lookup because it mentioned a
-bin. And a score tie sent "notify the crew" to the crew list. The fallback now
-runs last, and actions outrank lookups, so a new intent cannot be shadowed by
-either rule again.
+**Two routing-order bugs, recorded.** A bin-id fallback running *first*
+swallowed every new verb ("assign Ravi to bin_x" → status lookup); a score tie
+sent "notify the crew" to the crew list. Fallback now runs last, actions
+outrank lookups.
 
 **Reconciliation.** `bin_reporting` owns the report; `worker_dashboard` owns
 the job. A completed assignment is never pushed back to `bin_reporting` —
@@ -885,6 +888,133 @@ POST /chat  {"message": "Show me waste stats"}
 - Load-bearing: `bin_reporting`, `worker_dashboard`, `notification_system`,
   `analytics_dashboard`. Optional: `waste_recognition`, `route_optimizer`.
 - The report is persisted **before** any peer call.
+
+### Tradability, verified not asserted
+
+The chatbot consumes six capabilities — more than any other module — so it is
+the hardest one to claim is independently sellable. Tested by doing it:
+`chatbot.py` copied alone into an empty directory outside the repo, nothing
+else present, nothing configured.
+
+| Check | Result |
+|---|---|
+| Boots from one file | `{"ok": true, "module": "chatbot"}` |
+| Serves `/health`, `/intents`, `/chat`, `/conversations` | 10-intent map returned |
+| Auth enforced | `401` with no key |
+| `help` intent | answered in full |
+| Six unconfigured dependencies | each names its capability and env var |
+| Cross-module imports | 0 (AST-checked) |
+| `required_dependencies` | `[]` |
+
+A buyer gets a working conversational service on day one and connects it to
+whatever they already run. Every dependency is a capability behind an
+environment variable, so wiring it to a different stack is configuration.
+
+**The transfer artefacts.** The module previously had none — no licence meant
+it was, strictly, not transferable at all. It now ships `LICENSE` (chain of
+title back to `AniketCodes76/suvida_chatbot @ e207819`, what is and is not
+included, and the fail-open auth defect disclosed and marked remedied) and
+`module.json` (provides/consumes, all seven dependencies optional).
+
+> The other six Python modules still lack `LICENSE` and `module.json`. The
+> Node reference tree has both and a compliance checker that enforces them;
+> the Python tree does not yet. Same fix, six times over — not done here
+> because only the chatbot was in scope.
+
+### Starter code — a tradable chatbot module
+
+Runnable as written: `pip install fastapi uvicorn httpx`, then
+`uvicorn chatbot_min:app --port 8007`. Verified twice — standalone with no
+dependencies configured, and pointed at a live `analytics_dashboard`, where it
+returned the real 64/43/21.
+
+```python
+"""Minimal tradable chatbot module — the whole pattern in 60 lines.
+
+    pip install fastapi uvicorn httpx
+    uvicorn chatbot_min:app --port 8007
+    curl -X POST localhost:8007/chat -H "X-API-Key: dev-suvida-key" \
+         -H 'Content-Type: application/json' -d '{"message":"show me stats"}'
+"""
+import os
+from typing import Any, Optional
+
+import httpx
+from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException
+from pydantic import BaseModel
+
+API_KEY = os.getenv("CHAT_API_KEY", "dev-suvida-key")          # never None: fails closed
+ANALYTICS_URL = os.getenv("ANALYTICS_URL", "")                 # capability, not a module
+TIMEOUT_S = float(os.getenv("DEPENDENCY_TIMEOUT_MS", "2500")) / 1000
+
+router = APIRouter()                                           # the unit of composition
+
+
+def require_api_key(x_api_key: Optional[str] = Header(None)):
+    if not x_api_key:                                          # reject BEFORE comparing
+        raise HTTPException(401, "X-API-Key header is required.")
+    if x_api_key != API_KEY:
+        raise HTTPException(403, "Invalid API key")
+
+
+async def call(method: str, url: str, **kw) -> dict:
+    """Env-resolved, timeout-bounded, never raises."""
+    try:
+        async with httpx.AsyncClient(timeout=TIMEOUT_S) as c:
+            r = await c.request(method, url, **kw)
+            if r.status_code >= 400:
+                return {"ok": False, "reason": f"upstream_{r.status_code}"}
+            return {"ok": True, "data": r.json()}
+    except Exception:
+        return {"ok": False, "reason": "unreachable"}
+
+
+class ChatRequest(BaseModel):
+    message: str
+
+
+class ChatResponse(BaseModel):
+    reply: str
+    intent: str
+    endpoint: Optional[str] = None
+    data: dict[str, Any] = {}
+    degraded: Optional[dict[str, str]] = None
+
+
+@router.post("/chat", response_model=ChatResponse)
+async def chat(body: ChatRequest, _=Depends(require_api_key)):
+    if not any(k in body.message.lower() for k in ("stat", "analytic", "how many")):
+        return ChatResponse(reply="I can show you collection statistics.", intent="help")
+
+    if not ANALYTICS_URL:                                      # unconfigured != outage
+        return ChatResponse(reply="Not connected to analytics — set ANALYTICS_URL.",
+                            intent="analytics", degraded={"analytics": "not_configured"})
+
+    got = await call("GET", f"{ANALYTICS_URL}/analytics")
+    if not got["ok"]:
+        return ChatResponse(reply="Analytics is not answering just now.", intent="analytics",
+                            endpoint="GET /analytics", degraded={"analytics": got["reason"]})
+
+    k = got["data"]["kpis"]                                    # facts from the module
+    return ChatResponse(
+        reply=f"{k['reported']} bins reported, {k['collected']} collected, "
+              f"{k['outstanding']} outstanding.",
+        intent="analytics", endpoint="GET /analytics", data={"kpis": k})
+
+
+app = FastAPI(title="chatbot")                                 # the unit of sale
+app.include_router(router)
+```
+
+Five properties make it tradable, and each is one line above:
+
+| | |
+|---|---|
+| `router` **and** `app` | composes into another app, or ships as a service |
+| `API_KEY` has a default | never `None`, so the comparison cannot fail open |
+| header checked *before* compare | a missing header is rejected on its own terms |
+| dependency is a URL from env | repoint at a buyer's host without touching code |
+| `not_configured` ≠ outage | a new owner is told which variable to set |
 
 ### The chatbot's role — in short
 

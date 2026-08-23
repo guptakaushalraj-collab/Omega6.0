@@ -39,7 +39,10 @@ other over HTTP, which is what keeps each one sellable. Hand a buyer a single
 `.py` and it runs.
 
 Verified by doing exactly that — `route_optimizer.py` copied alone into an
-empty directory outside the repo answered `GET /optimizeRoute` correctly.
+empty directory outside the repo answered `GET /optimizeRoute` correctly, and
+`chatbot.py`, which consumes six capabilities, booted from one file with none
+of them configured and answered every request by naming the capability it
+lacked and the variable to set.
 
 ## Run
 
