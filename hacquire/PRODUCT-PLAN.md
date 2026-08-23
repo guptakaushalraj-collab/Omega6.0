@@ -14,11 +14,15 @@ before being written down. Nothing here is illustrative-only.
 ```
 hacquire/                                   PROJECT ROOT
 │
-├── main.py                                 Launcher. Boots the six as SEPARATE
-│                                           PROCESSES and injects each one's
-│                                           dependency URLs. A convenience,
-│                                           never a dependency — no module
-│                                           imports it.
+├── main.py                                 SINGLE-PROCESS deployment. Mounts all
+│                                           six as routers in one FastAPI app:
+│                                           uvicorn main:app
+│
+├── run_network.py                          DISTRIBUTED deployment. Boots the six
+│                                           as SEPARATE PROCESSES and injects
+│                                           each one's dependency URLs. Neither
+│                                           file is a dependency — no module
+│                                           imports either of them.
 │
 ├── requirements.txt                        One dependency set for the network.
 │                                           Each module also names its own
@@ -30,11 +34,16 @@ hacquire/                                   PROJECT ROOT
 │                                           defaults — it runs with no .env.
 │
 ├── modules/                                SIX TRADABLE SERVICES
-│   │                                       ONE MODULE IS ONE FILE. Datastore,
-│   │                                       outbound adapters and HTTP surface
-│   │                                       all inside it. No shared code, no
-│   │                                       shared database, zero cross-module
-│   │                                       imports — verified.
+│   │                                       ONE MODULE IS ONE FILE, exposing two
+│   │                                       handles: `router` (the unit of
+│   │                                       COMPOSITION) and `app` (the unit of
+│   │                                       SALE). Datastore, outbound adapters
+│   │                                       and HTTP surface all inside it. No
+│   │                                       shared code, no shared database,
+│   │                                       zero cross-module imports —
+│   │                                       verified. Even composed into one
+│   │                                       process they call each other over
+│   │                                       HTTP, never by import.
 │   │
 │   ├── bin_reporting/
 │   │   ├── bin_reporting.py                :8001  HELD — the entry point.
@@ -87,6 +96,14 @@ hacquire/                                   PROJECT ROOT
 ├── README.md                               Run instructions + design rules
 └── PRODUCT-PLAN.md                         This document
 ```
+
+**Two deployments, one implementation.** `uvicorn main:app` runs everything in
+one process behind prefixes (`POST /bin/reportBin`); `python run_network.py`
+runs six services on six ports (`POST /reportBin`). Composition is cheaper to
+operate and demo, but it costs the three sold modules their independent
+deploy, scale and release — and prefixes every published path. Exposing both
+`router` and `app` means that choice stays reversible, and a buyer still
+receives a service rather than a fragment.
 
 **Why one file per module.** Directory-per-module with its own package, its own
 `requirements.txt` and its own `.env` is the textbook shape, but it makes a
@@ -266,7 +283,8 @@ an error.
 
 ```bash
 pip install fastapi uvicorn pydantic httpx python-multipart
-python hacquire/main.py                       # all six, dependencies wired
+uvicorn main:app                              # one process, prefixed paths
+python hacquire/run_network.py                # six processes, six ports
 # or standalone:
 cd hacquire/modules/waste_recognition && uvicorn waste_recognition:app --port 8002
 ```
@@ -644,7 +662,7 @@ production hardening; counterparty negotiation.
 - **Resilience:** stop `route_optimizer` and step 4 returns `UNORDERED` with a
   reason, step 5 drops its "stop N of M" phrasing, the run still completes.
   Degradation is designed, not accidental.
-- **Run it yourself:** `python hacquire/main.py`
+- **Run it yourself:** `uvicorn main:app` (one process) or `python hacquire/run_network.py` (six)
 
 ---
 

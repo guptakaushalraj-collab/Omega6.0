@@ -16,7 +16,7 @@ import math
 import os
 from typing import Any, Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import APIRouter, FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field, field_validator
 
 APP_VERSION = "1.0.0"
@@ -24,7 +24,7 @@ MAX_STOPS = 200
 EARTH_RADIUS_KM = 6371.0
 DEFAULT_START = {"lat": 12.9716, "lng": 77.5946}  # Bengaluru city centre
 
-app = FastAPI(title="route_optimizer", version=APP_VERSION)
+router = APIRouter()
 
 
 class Point(BaseModel):
@@ -148,18 +148,18 @@ def _parse_latlng(value: str) -> Optional[dict]:
     return {"lat": lat, "lng": lng}
 
 
-@app.get("/api/v1/health")
+@router.get("/api/v1/health")
 def health():
     return {"ok": True, "module": "route_optimizer", "version": APP_VERSION}
 
 
-@app.post("/api/v1/optimize")
+@router.post("/api/v1/optimize")
 def optimize_route(body: OptimizeRequest):
     stops = [{**s.model_dump(), "location": s.location.model_dump()} for s in body.stops]
     return optimize(body.start.model_dump(), stops, body.refine)
 
 
-@app.post("/api/v1/distance-matrix")
+@router.post("/api/v1/distance-matrix")
 def distance_matrix(points: list[Point]):
     if not points:
         raise HTTPException(400, "points must be a non-empty array")
@@ -170,7 +170,7 @@ def distance_matrix(points: list[Point]):
             "matrix": [[round(haversine_km(a, b), 4) for b in pts] for a in pts]}
 
 
-@app.get("/optimizeRoute")
+@router.get("/optimizeRoute")
 def optimize_route_alias(
     bins: str = Query(..., description='JSON array: [{"lat":..,"lng":..}] or ["lat,lng"]'),
     start: Optional[str] = None,
@@ -227,6 +227,22 @@ def optimize_route_alias(
     result = optimize(start_pt, stops, refine)
     return {"start": start_pt, "start_defaulted": defaulted,
             "order": [s["id"] for s in result["stops"]], **result}
+
+
+# --------------------------------------------------------------- packaging
+# TWO DEPLOYMENT SHAPES, ONE IMPLEMENTATION.
+#
+#   router — mount into any FastAPI app:
+#              app.include_router(router, prefix="route")
+#   app    — run this module as its own service:
+#              uvicorn route_optimizer:app --port 8003
+#
+# The router is the unit of COMPOSITION; the app is the unit of SALE. Exposing
+# both means the single-process monolith and the six-service network are the
+# same code, so choosing one deployment today does not foreclose the other —
+# and a buyer still receives a service, not a fragment of ours.
+app = FastAPI(title="route_optimizer", version=APP_VERSION)
+app.include_router(router)
 
 
 if __name__ == "__main__":

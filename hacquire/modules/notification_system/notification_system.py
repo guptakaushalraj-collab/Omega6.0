@@ -31,7 +31,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import Depends, FastAPI, Header, Request
+from fastapi import APIRouter, Depends, FastAPI, Header, Request, Response
+from fastapi.routing import APIRoute
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -90,7 +91,6 @@ class Store:
         return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-app = FastAPI(title="SignalPost Relay", version=APP_VERSION)
 store = Store({"messages": []})
 
 
@@ -104,17 +104,39 @@ class ApiKeyError(Exception):
         self.status, self.code, self.message = status, code, message
 
 
+class SignalPostRoute(APIRoute):
+    """Carries the vendor error envelope WITH the route, not with the app.
+
+    An app-level @exception_handler is registered on ONE FastAPI instance. The
+    moment this router is included into somebody else's app — the composed
+    single-process deployment, or a buyer's own gateway — that handler is left
+    behind and an unauthenticated call turns into a 500 instead of SignalPost's
+    documented 401. Wrapping the route handler keeps
+    {"error":{"code","message"}} intact wherever the router is mounted, which
+    is exactly the guarantee an acquired module has to make.
+    """
+
+    def get_route_handler(self):
+        original = super().get_route_handler()
+
+        async def handler(request: Request) -> Response:
+            try:
+                return await original(request)
+            except ApiKeyError as exc:
+                return fail(exc.status, exc.code, exc.message)
+
+        return handler
+
+
+router = APIRouter(route_class=SignalPostRoute)
+
+
 def require_api_key(x_api_key: Optional[str] = Header(None)):
     if not x_api_key:
         raise ApiKeyError(401, "missing_api_key", "X-API-Key header is required.")
     if x_api_key != API_KEY:
         raise ApiKeyError(403, "invalid_api_key", "The supplied API key was not recognised.")
     return x_api_key
-
-
-@app.exception_handler(ApiKeyError)
-def _api_key_handler(_request: Request, exc: ApiKeyError):
-    return fail(exc.status, exc.code, exc.message)
 
 
 class MessageIn(BaseModel):
@@ -158,17 +180,17 @@ def _persist(recipient_type: str, recipient_id: Optional[str], channel: str,
     return msg
 
 
-@app.get("/v1/health")
+@router.get("/v1/health")
 def health():
     return {"ok": True, "service": "signalpost-relay", "version": APP_VERSION}
 
 
-@app.get("/v1/channels")
+@router.get("/v1/channels")
 def channels(_=Depends(require_api_key)):
     return {"channels": CHANNELS}
 
 
-@app.post("/v1/messages", status_code=201)
+@router.post("/v1/messages", status_code=201)
 def send(msg: MessageIn, _=Depends(require_api_key)):
     if not msg.recipient_type:
         return fail(400, "missing_recipient_type", "recipient_type is required.")
@@ -182,7 +204,7 @@ def send(msg: MessageIn, _=Depends(require_api_key)):
                     msg.body, msg.subject_ref, msg.metadata)
 
 
-@app.get("/v1/messages")
+@router.get("/v1/messages")
 def inbox(recipient_type: Optional[str] = None, recipient_id: Optional[str] = None,
           subject_ref: Optional[str] = None, unacknowledged: Optional[str] = None,
           limit: int = 100, _=Depends(require_api_key)):
@@ -200,7 +222,7 @@ def inbox(recipient_type: Optional[str] = None, recipient_id: Optional[str] = No
     return {"count": len(msgs), "messages": msgs[:min(limit, 500)]}
 
 
-@app.get("/v1/messages/{mid}")
+@router.get("/v1/messages/{mid}")
 def get_message(mid: str, _=Depends(require_api_key)):
     for m in store.read()["messages"]:
         if m["id"] == mid:
@@ -208,7 +230,7 @@ def get_message(mid: str, _=Depends(require_api_key)):
     return fail(404, "message_not_found", "No message with that id.")
 
 
-@app.post("/v1/messages/{mid}/ack")
+@router.post("/v1/messages/{mid}/ack")
 def ack(mid: str, _=Depends(require_api_key)):
     """Idempotent — re-acknowledging preserves the original acknowledged_at."""
     data = store.read()
@@ -222,7 +244,7 @@ def ack(mid: str, _=Depends(require_api_key)):
     return fail(404, "message_not_found", "No message with that id.")
 
 
-@app.post("/v1/messages/ack_all")
+@router.post("/v1/messages/ack_all")
 def ack_all(body: dict, _=Depends(require_api_key)):
     rt, rid = body.get("recipient_type"), body.get("recipient_id")
     if not rt and not rid:
@@ -240,7 +262,7 @@ def ack_all(body: dict, _=Depends(require_api_key)):
     return {"acknowledged": n}
 
 
-@app.post("/notifyPickup", status_code=201)
+@router.post("/notifyPickup", status_code=201)
 def notify_pickup(body: PickupIn, _=Depends(require_api_key)):
     """Flat alias over POST /v1/messages.
 
@@ -275,6 +297,22 @@ def notify_pickup(body: PickupIn, _=Depends(require_api_key)):
             "binId": msg["subject_ref"], "recipient": msg["recipient_type"],
             "channel": msg["channel"], "delivery_status": msg["delivery_status"],
             "message": msg["body"]}
+
+
+# --------------------------------------------------------------- packaging
+# TWO DEPLOYMENT SHAPES, ONE IMPLEMENTATION.
+#
+#   router — mount into any FastAPI app:
+#              app.include_router(router, prefix="notify")
+#   app    — run this module as its own service:
+#              uvicorn notification_system:app --port 8005
+#
+# The router is the unit of COMPOSITION; the app is the unit of SALE. Exposing
+# both means the single-process monolith and the six-service network are the
+# same code, so choosing one deployment today does not foreclose the other —
+# and a buyer still receives a service, not a fragment of ours.
+app = FastAPI(title="SignalPost Relay", version=APP_VERSION)
+app.include_router(router)
 
 
 if __name__ == "__main__":

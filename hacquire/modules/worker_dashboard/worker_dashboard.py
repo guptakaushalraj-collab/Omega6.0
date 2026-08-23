@@ -32,7 +32,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 import httpx
-from fastapi import Depends, FastAPI, Header, Request
+from fastapi import APIRouter, Depends, FastAPI, Header, Request, Response
+from fastapi.routing import APIRoute
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
@@ -166,7 +167,6 @@ def dependency_config() -> dict:
     }
 
 
-app = FastAPI(title="FieldOps Crew", version=APP_VERSION)
 store = Store({"workers": [], "assignments": []})
 
 
@@ -180,6 +180,31 @@ class AuthError(Exception):
         self.status, self.error, self.detail = status, error, detail
 
 
+class FieldOpsRoute(APIRoute):
+    """Carries the FieldOps error envelope WITH the route, not with the app.
+
+    Same reason as the other acquired module, and the same fix: an app-level
+    @exception_handler does not survive being included into a different
+    FastAPI app, so a 401 would silently become a 500 in the composed
+    deployment. FieldOps' flat {"error","detail"} shape is what their existing
+    SDKs parse — it has to hold wherever this router is mounted.
+    """
+
+    def get_route_handler(self):
+        original = super().get_route_handler()
+
+        async def handler(request: Request) -> Response:
+            try:
+                return await original(request)
+            except AuthError as exc:
+                return fail(exc.status, exc.error, exc.detail)
+
+        return handler
+
+
+router = APIRouter(route_class=FieldOpsRoute)
+
+
 def require_bearer(authorization: Optional[str] = Header(None)):
     if not authorization:
         raise AuthError(401, "unauthorized", "Authorization header is required.")
@@ -189,11 +214,6 @@ def require_bearer(authorization: Optional[str] = Header(None)):
     if parts[1] != AUTH_TOKEN:
         raise AuthError(403, "forbidden", "Token not recognised.")
     return parts[1]
-
-
-@app.exception_handler(AuthError)
-def _auth_handler(_r: Request, exc: AuthError):
-    return fail(exc.status, exc.error, exc.detail)
 
 
 class Point(BaseModel):
@@ -230,7 +250,7 @@ def haversine_km(a: dict, b: dict) -> float:
     return 2 * 6371.0 * math.asin(math.sqrt(h))
 
 
-@app.get("/v1/health")
+@router.get("/v1/health")
 def health():
     return {"ok": True, "service": "fieldops-crew", "version": APP_VERSION,
             "dependencies": dependency_config()}
@@ -238,7 +258,7 @@ def health():
 
 # ------------------------------------------------------------------ workers
 
-@app.post("/v1/workers", status_code=201)
+@router.post("/v1/workers", status_code=201)
 def create_worker(w: WorkerIn, _=Depends(require_bearer)):
     data = store.read()
     worker = {"id": store.new_id("wrk"), "name": w.name, "phone": w.phone,
@@ -249,7 +269,7 @@ def create_worker(w: WorkerIn, _=Depends(require_bearer)):
     return worker
 
 
-@app.get("/v1/workers")
+@router.get("/v1/workers")
 def list_workers(status: Optional[str] = None, _=Depends(require_bearer)):
     data = store.read()
     workers = [w for w in data["workers"] if not status or w["status"] == status]
@@ -262,7 +282,7 @@ def list_workers(status: Optional[str] = None, _=Depends(require_bearer)):
         for w in workers]}
 
 
-@app.patch("/v1/workers/{wid}")
+@router.patch("/v1/workers/{wid}")
 def patch_worker(wid: str, body: WorkerPatch, _=Depends(require_bearer)):
     data = store.read()
     for w in data["workers"]:
@@ -280,7 +300,7 @@ def patch_worker(wid: str, body: WorkerPatch, _=Depends(require_bearer)):
 
 # -------------------------------------------------------------- assignments
 
-@app.post("/v1/assignments", status_code=201)
+@router.post("/v1/assignments", status_code=201)
 async def create_assignment(body: AssignmentIn, _=Depends(require_bearer)):
     """Dispatch the NEAREST AVAILABLE worker.
 
@@ -328,7 +348,7 @@ async def create_assignment(body: AssignmentIn, _=Depends(require_bearer)):
         "analytics": "recorded" if emitted["ok"] else f"skipped:{emitted['reason']}"}}
 
 
-@app.get("/v1/assignments")
+@router.get("/v1/assignments")
 def list_assignments(worker_id: Optional[str] = None, status: Optional[str] = None,
                      job_ref: Optional[str] = None, _=Depends(require_bearer)):
     items = store.read()["assignments"]
@@ -341,7 +361,7 @@ def list_assignments(worker_id: Optional[str] = None, status: Optional[str] = No
     return {"count": len(items), "assignments": list(reversed(items))}
 
 
-@app.patch("/v1/assignments/{aid}")
+@router.patch("/v1/assignments/{aid}")
 async def patch_assignment(aid: str, body: StatusPatch, _=Depends(require_bearer)):
     if body.status not in STATUSES:
         return fail(422, "invalid_status", f"status must be one of: {', '.join(STATUSES)}.")
@@ -395,7 +415,7 @@ async def patch_assignment(aid: str, body: StatusPatch, _=Depends(require_bearer
     return {**assignment, "side_effects": side_effects}
 
 
-@app.get("/v1/workers/{wid}/queue")
+@router.get("/v1/workers/{wid}/queue")
 async def worker_queue(wid: str, _=Depends(require_bearer)):
     """A worker's open jobs, sequenced.
 
@@ -429,6 +449,22 @@ async def worker_queue(wid: str, _=Depends(require_bearer)):
             "strategy": result["data"]["strategy"],
             "total_distance_km": result["data"]["total_distance_km"],
             "stops": result["data"]["stops"]}
+
+
+# --------------------------------------------------------------- packaging
+# TWO DEPLOYMENT SHAPES, ONE IMPLEMENTATION.
+#
+#   router — mount into any FastAPI app:
+#              app.include_router(router, prefix="worker")
+#   app    — run this module as its own service:
+#              uvicorn worker_dashboard:app --port 8006
+#
+# The router is the unit of COMPOSITION; the app is the unit of SALE. Exposing
+# both means the single-process monolith and the six-service network are the
+# same code, so choosing one deployment today does not foreclose the other —
+# and a buyer still receives a service, not a fragment of ours.
+app = FastAPI(title="FieldOps Crew", version=APP_VERSION)
+app.include_router(router)
 
 
 if __name__ == "__main__":

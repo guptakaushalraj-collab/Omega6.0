@@ -23,7 +23,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI
 from pydantic import BaseModel, Field
 
 APP_VERSION = "1.0.0"
@@ -77,7 +77,7 @@ class Store:
         return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-app = FastAPI(title="analytics_dashboard", version=APP_VERSION)
+router = APIRouter()
 store = Store({"events": []})
 
 EVENT_TYPES = [
@@ -196,17 +196,17 @@ def trend(events: list[dict], days: int = 7) -> list[dict]:
     return out
 
 
-@app.get("/api/v1/health")
+@router.get("/api/v1/health")
 def health():
     return {"ok": True, "module": "analytics_dashboard", "version": APP_VERSION}
 
 
-@app.get("/api/v1/event-types")
+@router.get("/api/v1/event-types")
 def event_types():
     return EVENT_TYPES
 
 
-@app.post("/api/v1/events", status_code=202)
+@router.post("/api/v1/events", status_code=202)
 def ingest(evt: EventIn):
     """Ingest one event.
 
@@ -232,7 +232,7 @@ def ingest(evt: EventIn):
     return {"accepted": True, "id": record["id"], "known_type": record["known_type"]}
 
 
-@app.get("/api/v1/events")
+@router.get("/api/v1/events")
 def list_events(type: Optional[str] = None, subject_id: Optional[str] = None, limit: int = 100):
     events = store.read()["events"]
     if type:
@@ -242,18 +242,18 @@ def list_events(type: Optional[str] = None, subject_id: Optional[str] = None, li
     return list(reversed(events[-min(limit, 1000):]))
 
 
-@app.get("/api/v1/summary")
+@router.get("/api/v1/summary")
 def summary():
     return summarize(store.read()["events"])
 
 
-@app.get("/api/v1/trends")
+@router.get("/api/v1/trends")
 def trends(days: int = 7):
     days = max(1, min(days, 90))
     return {"days": days, "series": trend(store.read()["events"], days)}
 
 
-@app.get("/analytics")
+@router.get("/analytics")
 def analytics(days: int = 7):
     """Flat alias returning CHART-READY data.
 
@@ -311,6 +311,22 @@ def analytics(days: int = 7):
         },
         "summary": s,
     }
+
+
+# --------------------------------------------------------------- packaging
+# TWO DEPLOYMENT SHAPES, ONE IMPLEMENTATION.
+#
+#   router — mount into any FastAPI app:
+#              app.include_router(router, prefix="analytics")
+#   app    — run this module as its own service:
+#              uvicorn analytics_dashboard:app --port 8004
+#
+# The router is the unit of COMPOSITION; the app is the unit of SALE. Exposing
+# both means the single-process monolith and the six-service network are the
+# same code, so choosing one deployment today does not foreclose the other —
+# and a buyer still receives a service, not a fragment of ours.
+app = FastAPI(title="analytics_dashboard", version=APP_VERSION)
+app.include_router(router)
 
 
 if __name__ == "__main__":

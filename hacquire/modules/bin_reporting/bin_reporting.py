@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import httpx
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, FastAPI, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 APP_VERSION = "1.0.0"
@@ -163,7 +163,7 @@ def dependency_config() -> dict:
     }
 
 
-app = FastAPI(title="bin_reporting", version=APP_VERSION)
+router = APIRouter()
 store = Store({"reports": []})
 
 
@@ -305,13 +305,13 @@ async def reclassify(bin_id: str) -> dict:
     return {"ok": True, "report": report}
 
 
-@app.get("/api/v1/health")
+@router.get("/api/v1/health")
 def health():
     return {"ok": True, "module": "bin_reporting", "version": APP_VERSION,
             "dependencies": dependency_config()}
 
 
-@app.post("/api/v1/reports", status_code=201)
+@router.post("/api/v1/reports", status_code=201)
 async def report_json(body: ReportIn):
     if body.lat is None or body.lng is None:
         raise HTTPException(400, "lat and lng are required")
@@ -321,7 +321,7 @@ async def report_json(body: ReportIn):
                                auto_assign=body.auto_assign)
 
 
-@app.post("/api/v1/reports-upload", status_code=201)
+@router.post("/api/v1/reports-upload", status_code=201)
 async def report_multipart(photo: UploadFile = File(...), lat: float = Form(...),
                            lng: float = Form(...), address: str = Form(""),
                            notes: str = Form(""), reporter_name: str = Form("Anonymous"),
@@ -335,7 +335,7 @@ async def report_multipart(photo: UploadFile = File(...), lat: float = Form(...)
                                photo_filename=name, auto_assign=auto_assign)
 
 
-@app.get("/api/v1/reports")
+@router.get("/api/v1/reports")
 def list_reports(status: Optional[str] = None, waste_type: Optional[str] = None, limit: int = 100):
     reports = store.read()["reports"]
     if status:
@@ -345,7 +345,7 @@ def list_reports(status: Optional[str] = None, waste_type: Optional[str] = None,
     return {"count": len(reports), "reports": list(reversed(reports))[:min(limit, 500)]}
 
 
-@app.get("/api/v1/reports/{bin_id}")
+@router.get("/api/v1/reports/{bin_id}")
 def get_report(bin_id: str):
     for r in store.read()["reports"]:
         if r["id"] == bin_id:
@@ -353,7 +353,7 @@ def get_report(bin_id: str):
     raise HTTPException(404, "Report not found")
 
 
-@app.post("/api/v1/reports/{bin_id}/reclassify")
+@router.post("/api/v1/reports/{bin_id}/reclassify")
 async def reclassify_route(bin_id: str):
     result = await reclassify(bin_id)
     if result["ok"]:
@@ -365,7 +365,7 @@ async def reclassify_route(bin_id: str):
     raise HTTPException(status, msg)
 
 
-@app.patch("/api/v1/reports/{bin_id}/status")
+@router.patch("/api/v1/reports/{bin_id}/status")
 async def patch_status(bin_id: str, body: StatusPatch):
     if body.status not in STATUSES:
         raise HTTPException(422, f"status must be one of: {', '.join(STATUSES)}")
@@ -384,7 +384,7 @@ async def patch_status(bin_id: str, body: StatusPatch):
 
 # --------------------------------------------------------- flat alias API
 
-@app.post("/reportBin", status_code=201)
+@router.post("/reportBin", status_code=201)
 async def report_bin(body: ReportBinIn):
     """Flat alias: {image, location: "lat,lng"} -> {binId, type, ...}"""
     location = None
@@ -422,7 +422,7 @@ async def report_bin(body: ReportBinIn):
             "degraded": out["degraded"], "report": r}
 
 
-@app.post("/detectWasteType")
+@router.post("/detectWasteType")
 async def detect_waste_type(body: DetectIn):
     """Flat alias: {binId} -> {type}.
 
@@ -455,6 +455,22 @@ async def detect_waste_type(body: DetectIn):
              "photo_gone": (410, "Stored photo is no longer available")}
     status, msg = codes.get(result["code"], (503, "Classifier unavailable"))
     raise HTTPException(status, msg)
+
+
+# --------------------------------------------------------------- packaging
+# TWO DEPLOYMENT SHAPES, ONE IMPLEMENTATION.
+#
+#   router — mount into any FastAPI app:
+#              app.include_router(router, prefix="bin")
+#   app    — run this module as its own service:
+#              uvicorn bin_reporting:app --port 8001
+#
+# The router is the unit of COMPOSITION; the app is the unit of SALE. Exposing
+# both means the single-process monolith and the six-service network are the
+# same code, so choosing one deployment today does not foreclose the other —
+# and a buyer still receives a service, not a fragment of ours.
+app = FastAPI(title="bin_reporting", version=APP_VERSION)
+app.include_router(router)
 
 
 if __name__ == "__main__":

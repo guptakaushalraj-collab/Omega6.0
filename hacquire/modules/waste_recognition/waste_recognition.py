@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import APIRouter, FastAPI, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 
 APP_VERSION = "1.0.0"
@@ -77,7 +77,7 @@ class Store:
         return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-app = FastAPI(title="waste_recognition", version=APP_VERSION)
+router = APIRouter()
 store = Store({"classifications": []})
 
 # --- taxonomy -------------------------------------------------------------
@@ -186,40 +186,56 @@ def _record(image: bytes, reference: Optional[str]) -> dict:
     return rec
 
 
-@app.get("/api/v1/health")
+@router.get("/api/v1/health")
 def health():
     return {"ok": True, "module": "waste_recognition",
             "version": APP_VERSION, "model_version": MODEL_VERSION}
 
 
-@app.get("/api/v1/waste-types")
+@router.get("/api/v1/waste-types")
 def waste_types():
     return TAXONOMY
 
 
-@app.post("/api/v1/classify", response_model=ClassificationRecord)
+@router.post("/api/v1/classify", response_model=ClassificationRecord)
 def classify_json(body: ClassifyRequest):
     """Classify from base64 JSON — the server-to-server intake."""
     return _record(_decode(body.image_base64), body.reference)
 
 
-@app.post("/api/v1/classify-upload", response_model=ClassificationRecord)
+@router.post("/api/v1/classify-upload", response_model=ClassificationRecord)
 async def classify_upload(photo: UploadFile = File(...), reference: str = ""):
     """Classify from a multipart upload — the browser intake."""
     return _record(await photo.read(), reference or None)
 
 
-@app.get("/api/v1/classifications")
+@router.get("/api/v1/classifications")
 def list_classifications(limit: int = 50):
     return store.read()["classifications"][: min(limit, AUDIT_CAP)]
 
 
-@app.get("/api/v1/classifications/{cid}")
+@router.get("/api/v1/classifications/{cid}")
 def get_classification(cid: str):
     for c in store.read()["classifications"]:
         if c["id"] == cid:
             return c
     raise HTTPException(404, "Classification not found")
+
+
+# --------------------------------------------------------------- packaging
+# TWO DEPLOYMENT SHAPES, ONE IMPLEMENTATION.
+#
+#   router — mount into any FastAPI app:
+#              app.include_router(router, prefix="waste")
+#   app    — run this module as its own service:
+#              uvicorn waste_recognition:app --port 8002
+#
+# The router is the unit of COMPOSITION; the app is the unit of SALE. Exposing
+# both means the single-process monolith and the six-service network are the
+# same code, so choosing one deployment today does not foreclose the other —
+# and a buyer still receives a service, not a fragment of ours.
+app = FastAPI(title="waste_recognition", version=APP_VERSION)
+app.include_router(router)
 
 
 if __name__ == "__main__":

@@ -1,184 +1,103 @@
-#!/usr/bin/env python3
-"""Intelligent Waste Collection Network — network launcher.
+"""Intelligent Waste Collection Network — single-process deployment.
 
-HACQUIRE 2026. Boots the six independent FastAPI modules as SEPARATE
-PROCESSES and injects each one's dependency URLs as environment variables.
+Mounts all six modules as routers in ONE FastAPI app:
 
-This file is a convenience, never a dependency. Nothing in modules/ imports
-it, and every module runs perfectly well on its own:
+    uvicorn main:app --reload
 
-    cd modules/waste_recognition && uvicorn waste_recognition:app --port 8002
+The distributed deployment — six processes on six ports, talking over HTTP —
+is `run_network.py`. Both drive exactly the same module code: every module
+exposes a `router` (the unit of composition, used here) and an `app` (the unit
+of sale, used there). Choosing one deployment today does not foreclose the
+other, and a buyer still receives a whole service rather than a fragment.
 
-That is the point. Each module is a product that can be sold, bought or
-replaced independently, so the network must be wired at the BOUNDARY — by
-environment variables handed to processes — and never by shared imports.
-
-Usage
------
-    python main.py                     # start all six
-    python main.py --reset             # wipe every datastore, then start
-    python main.py bin_reporting       # start one module only
-    python main.py --list              # show the registry and exit
-
-Configuration is read from the environment, then from a `.env` beside this
-file if one exists. Copy `.env.example` to `.env` to change ports, tokens or
-dependency targets. Every value has a working development default, so
-`python main.py` works with no configuration at all.
+WHAT COMPOSITION COSTS. Worth stating plainly, because it is the trade this
+file makes:
+  · one process, so one module's crash or memory leak takes down all six;
+  · one dependency set and one release, so the three SOLD modules can no
+    longer be deployed, scaled or versioned by their buyers independently;
+  · every path gains a prefix — POST /reportBin becomes POST /bin/reportBin —
+    a breaking change for anyone already on the published API.
+The acquired modules keep their own base paths, auth schemes and error
+envelopes underneath their prefix, so /notify/v1/... and /worker/v1/... behave
+exactly as their vendors documented.
 """
 import os
-import shutil
-import signal
-import subprocess
-import sys
-import time
-from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
-MODULES_DIR = ROOT / "modules"
+# ---------------------------------------------------------------------------
+# SELF-WIRING — must run BEFORE the module imports below.
+#
+# The modules still reach each other over HTTP even inside one process. They
+# hold no references to one another; that absence is precisely what keeps them
+# separately sellable, and composition is not a licence to start importing
+# across the boundary. So they only need to be told where "each other" now
+# lives: this same host, behind the prefixes registered further down.
+#
+# Each module resolves its dependency URLs from the environment at import
+# time, so these defaults have to be in place first — hence the placement
+# ahead of the imports rather than tidily beside them.
+#
+# Without this the dependencies are simply unconfigured and every module
+# degrades into an inert island: reports persist, but nothing is classified or
+# dispatched. Set any of these in the environment (or .env) to override —
+# a SOLD module can still be repointed at its buyer's host from here, exactly
+# as in the distributed deployment.
+# ---------------------------------------------------------------------------
+SELF_BASE_URL = os.getenv("SELF_BASE_URL", f"http://localhost:{os.getenv('PORT', '8000')}")
 
+for _var, _prefix in (
+    ("WASTE_RECOGNITION_URL", "/waste"),
+    ("ROUTE_OPTIMIZER_URL",   "/route"),
+    ("ANALYTICS_URL",         "/analytics"),
+    ("NOTIFICATION_URL",      "/notify"),
+    ("WORKER_DASHBOARD_URL",  "/worker"),
+):
+    os.environ.setdefault(_var, SELF_BASE_URL + _prefix)
 
-def load_dotenv(path: Path) -> None:
-    """Minimal KEY=VALUE loader — avoids a dependency for ten lines of work.
+from fastapi import FastAPI                                              # noqa: E402
 
-    Existing environment variables WIN over the file, so a value exported in
-    the shell (or injected by a container platform) is never silently
-    overwritten by a checked-in default.
-    """
-    if not path.exists():
-        return
-    for line in path.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        key, value = key.strip(), value.strip().strip('"').strip("'")
-        os.environ.setdefault(key, value)
+from modules.analytics_dashboard.analytics_dashboard import router as analytics_router  # noqa: E402
+from modules.bin_reporting.bin_reporting import router as bin_router                    # noqa: E402
+from modules.notification_system.notification_system import router as notify_router     # noqa: E402
+from modules.route_optimizer.route_optimizer import router as route_router              # noqa: E402
+from modules.waste_recognition.waste_recognition import router as waste_router          # noqa: E402
+from modules.worker_dashboard.worker_dashboard import router as worker_router           # noqa: E402
 
+app = FastAPI(title="Intelligent Waste Collection Network")
 
-load_dotenv(ROOT / ".env")
-
-
-def env(key: str, default: str) -> str:
-    return os.getenv(key, default)
-
-
-PORTS = {
-    "bin_reporting":       int(env("BIN_REPORTING_PORT", "8001")),
-    "waste_recognition":   int(env("WASTE_RECOGNITION_PORT", "8002")),
-    "route_optimizer":     int(env("ROUTE_OPTIMIZER_PORT", "8003")),
-    "analytics_dashboard": int(env("ANALYTICS_DASHBOARD_PORT", "8004")),
-    "notification_system": int(env("NOTIFICATION_SYSTEM_PORT", "8005")),
-    "worker_dashboard":    int(env("WORKER_DASHBOARD_PORT", "8006")),
-}
-
-HOST = env("HOST", "0.0.0.0")
-REACH = env("SERVICE_HOST", "localhost")   # how modules address EACH OTHER
-NOTIFY_API_KEY = env("NOTIFY_API_KEY", "dev-signalpost-key")
-CREW_AUTH_TOKEN = env("CREW_AUTH_TOKEN", "dev-fieldops-token")
-
-
-def url(module: str) -> str:
-    """Where a module is reachable.
-
-    Falls back to the locally launched process, but an explicit <MODULE>_URL
-    overrides it — that single indirection is what lets a SOLD module be
-    repointed at the buyer's hosted endpoint with one environment variable
-    and no code change.
-    """
-    return os.getenv(f"{module.upper()}_URL", f"http://{REACH}:{PORTS[module]}")
+# Register routers
+app.include_router(bin_router, prefix="/bin", tags=["bin_reporting"])
+app.include_router(waste_router, prefix="/waste", tags=["waste_recognition"])
+app.include_router(route_router, prefix="/route", tags=["route_optimizer"])
+app.include_router(analytics_router, prefix="/analytics", tags=["analytics_dashboard"])
+app.include_router(notify_router, prefix="/notify", tags=["notification_system"])
+app.include_router(worker_router, prefix="/worker", tags=["worker_dashboard"])
 
 
-# Boot order matters only for log readability — every module tolerates its
-# dependencies being absent, so any order works. Dependencies listed here are
-# CAPABILITIES the module consumes, injected as URLs; none is an import.
-REGISTRY = [
-    ("waste_recognition",   "SOLD $42,000",              lambda: {}),
-    ("route_optimizer",     "SOLD $28,000",              lambda: {}),
-    ("analytics_dashboard", "SOLD $35,000",              lambda: {}),
-    ("notification_system", "BOUGHT — SignalPost 2.4.1", lambda: {
-        "NOTIFY_API_KEY": NOTIFY_API_KEY,
-    }),
-    ("worker_dashboard",    "BOUGHT — FieldOps 3.1.0",   lambda: {
-        "ROUTE_OPTIMIZER_URL": url("route_optimizer"),
-        "NOTIFICATION_URL":    url("notification_system"),
-        "ANALYTICS_URL":       url("analytics_dashboard"),
-        "NOTIFY_API_KEY":      NOTIFY_API_KEY,
-        "CREW_AUTH_TOKEN":     CREW_AUTH_TOKEN,
-    }),
-    ("bin_reporting",       "HELD",                      lambda: {
-        "WASTE_RECOGNITION_URL": url("waste_recognition"),
-        "WORKER_DASHBOARD_URL":  url("worker_dashboard"),
-        "ANALYTICS_URL":         url("analytics_dashboard"),
-        "CREW_AUTH_TOKEN":       CREW_AUTH_TOKEN,
-    }),
-]
-
-NAMES = [name for name, _, _ in REGISTRY]
-
-
-def reset_stores() -> None:
-    """Delete every module's datastore and uploads. Destructive, opt-in."""
-    for name in NAMES:
-        for target in (MODULES_DIR / name / "data", MODULES_DIR / name / "uploads"):
-            if target.exists():
-                shutil.rmtree(target)
-                print(f"  reset {name}/{target.name}/")
-
-
-def start(name: str, banner: str, env_extra: dict) -> subprocess.Popen:
-    port = PORTS[name]
-    proc_env = {**os.environ, "PORT": str(port), **env_extra}
-    proc = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", f"{name}:app",
-         "--host", HOST, "--port", str(port), "--log-level", "warning"],
-        cwd=MODULES_DIR / name, env=proc_env,
-    )
-    print(f"  {name:<22} :{port}   {banner}")
-    return proc
-
-
-def main() -> None:
-    args = [a for a in sys.argv[1:] if not a.startswith("-")]
-    flags = {a for a in sys.argv[1:] if a.startswith("-")}
-
-    if "--list" in flags:
-        print("Intelligent Waste Collection Network — six independent modules\n")
-        for name, banner, _ in REGISTRY:
-            print(f"  {name:<22} :{PORTS[name]:<6} {banner}")
-        return
-
-    unknown = [a for a in args if a not in NAMES]
-    if unknown:
-        sys.exit(f"Unknown module(s): {', '.join(unknown)}\nKnown: {', '.join(NAMES)}")
-
-    if "--reset" in flags:
-        print("Resetting datastores...")
-        reset_stores()
-        print()
-
-    selected = [row for row in REGISTRY if not args or row[0] in args]
-
-    procs = []
-    for name, banner, env_fn in selected:
-        procs.append(start(name, banner, env_fn()))
-
-    print(f"\n{len(procs)} module(s) starting. Interactive docs at "
-          f"http://{REACH}:{PORTS[selected[0][0]]}/docs — Ctrl-C to stop.\n")
-
-    def shutdown(*_):
-        for proc in procs:
-            proc.terminate()
-        sys.exit(0)
-
-    signal.signal(signal.SIGINT, shutdown)
-    signal.signal(signal.SIGTERM, shutdown)
-
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        shutdown()
+@app.get("/", tags=["network"])
+def index():
+    """The registry, and where each module answers under composition."""
+    return {
+        "service": "Intelligent Waste Collection Network",
+        "deployment": "single-process — six routers, one app",
+        "modules": {
+            "bin_reporting":       {"prefix": "/bin",       "position": "HELD"},
+            "waste_recognition":   {"prefix": "/waste",     "position": "SOLD $42,000"},
+            "route_optimizer":     {"prefix": "/route",     "position": "SOLD $28,000"},
+            "analytics_dashboard": {"prefix": "/analytics", "position": "SOLD $35,000"},
+            "notification_system": {"prefix": "/notify",    "position": "BOUGHT — SignalPost Relay 2.4.1"},
+            "worker_dashboard":    {"prefix": "/worker",    "position": "BOUGHT — FieldOps Crew 3.1.0"},
+        },
+        "flat_api": {
+            "reportBin":       "POST /bin/reportBin",
+            "detectWasteType": "POST /bin/detectWasteType",
+            "optimizeRoute":   "GET  /route/optimizeRoute?bins=[...]",
+            "analytics":       "GET  /analytics/analytics",
+            "notifyPickup":    "POST /notify/notifyPickup",
+        },
+        "docs": "/docs",
+    }
 
 
 if __name__ == "__main__":
-    main()
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", 8000)))
