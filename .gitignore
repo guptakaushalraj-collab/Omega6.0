@@ -13,6 +13,7 @@ modules/*/uploads/*
 !modules/*/uploads/.gitkeep
 
 *.log
+server.pid
 .DS_Store
 
 # Secrets — real .env files at ANY depth (root and every module).

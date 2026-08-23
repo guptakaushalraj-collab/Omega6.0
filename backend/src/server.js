@@ -67,7 +67,31 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ error: err.message || "Internal server error" });
 });
 
-app.listen(PORT, HOST, () => {
+// SIGHUP: log and keep serving.
+//
+// `nohup` sets SIGHUP to ignored and a child normally inherits that across
+// exec — but Node installs its own handling at startup and terminates on
+// SIGHUP regardless. Measured: `nohup node server.js &` then `kill -HUP <pid>`
+// kills it; adding this listener, it survives. Without this line the process
+// dies the moment anything delivers a hangup, which is exactly what a closing
+// terminal does.
+//
+// Not used for config reload: there is no config to reload, and silently
+// restarting under an operator who expected a reload is worse than a no-op.
+process.on("SIGHUP", () => {
+  console.log("SIGHUP received — ignoring, still serving.");
+});
+
+// SIGTERM is the one that SHOULD stop it: that is what `kill`, systemd and
+// `docker stop` send, and a clean exit closes connections rather than dropping
+// them.
+process.on("SIGTERM", () => {
+  console.log("SIGTERM received — shutting down.");
+  server.close(() => process.exit(0));
+  setTimeout(() => process.exit(0), 5000).unref();
+});
+
+const server = app.listen(PORT, HOST, () => {
   const site = existsSync(FRONTEND_DIST) ? "site + API" : "API only (frontend not built)";
   console.log(`Waste Collection Network — ${site} on http://${HOST}:${PORT}`);
   if (HOST === "127.0.0.1") {
