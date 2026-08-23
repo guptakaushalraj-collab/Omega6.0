@@ -7,6 +7,11 @@
 Every endpoint, payload and figure below was executed against the running mesh
 before being written down. Nothing here is illustrative-only.
 
+The chatbot integration has its own standalone document —
+**[CHATBOT-INTEGRATION.md](./CHATBOT-INTEGRATION.md)** — covering objective,
+intent→API mapping, pseudocode, starter code and transfer evidence in one
+place. This plan keeps the network-wide view.
+
 ---
 
 ## 1. Full Folder Tree & Code Scaffolding

@@ -2,6 +2,10 @@
 
 Python / FastAPI. Six independent, individually tradable modules.
 
+**[→ CHATBOT-INTEGRATION.md](./CHATBOT-INTEGRATION.md)** — the chatbot
+integration plan on its own: objective, intent→API map, pseudocode, starter
+code, and the tradability evidence.
+
 **[→ PRODUCT-PLAN.md](./PRODUCT-PLAN.md)** — the full submission: folder tree,
 41 endpoints with sample JSON, integration pseudocode, trading strategy,
 pitch outline, and end-to-end summary.
