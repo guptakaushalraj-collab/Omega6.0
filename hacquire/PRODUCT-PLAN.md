@@ -106,6 +106,13 @@ hacquire/                                   PROJECT ROOT
 │                                           original TravelBuddy persona,
 │                                           resaleable to a transit operator
 │
+├── seed_demo.py                            Populates a running network with a
+│                                           week of plausible activity, so KPIs
+│                                           and trend charts have something to
+│                                           show. Live reports through the real
+│                                           pipeline + backdated analytics
+│                                           events for history.
+│
 ├── README.md                               Run instructions + design rules
 └── PRODUCT-PLAN.md                         This document
 ```
@@ -587,6 +594,45 @@ assignment record carries `job_ref` and no `binId`.
 
 ### Conversation — `POST /chat` *(chatbot)*
 
+**Sample — asking for the numbers.** Captured against a seeded network
+(`python seed_demo.py`), not written by hand. The seed is fixed, so the reply
+below reproduces byte-for-byte on a same-day run; volumes branch on weekday for
+a realistic trend line, so totals shift if you seed on another day:
+
+```bash
+curl -X POST localhost:8007/chat -H "X-API-Key: dev-suvida-key" \
+     -H 'Content-Type: application/json' \
+     -d '{"message": "Show me waste stats"}'
+```
+
+```json
+{
+  "reply": "64 bins reported, 43 collected, 21 still outstanding — a collection rate of 67%. Average time to clear: 11.9 minutes (90th percentile 24.0). 5 crew active, 47 notifications sent. Most common waste type: plastic.",
+  "intent": "analytics",
+  "endpoint": "GET /analytics",
+  "parser": "keyword",
+  "source": "template",
+  "data": {
+    "kpis": {
+      "reported": 64, "collected": 43, "outstanding": 21,
+      "collection_rate": 0.672,
+      "avg_resolution_minutes": 11.9, "p90_resolution_minutes": 24.0,
+      "active_workers": 5, "notifications_sent": 47
+    },
+    "charts": ["daily_activity", "waste_mix", "worker_leaderboard", "status_breakdown"]
+  },
+  "degraded": null,
+  "history": [{ "user": "Show me waste stats", "assistant": "64 bins reported, …" }]
+}
+```
+
+A client that only knows the acquired vendor's API reads `reply` and ignores
+the rest. A UI reads `data.kpis` for tiles and `data.charts` for graphs.
+`endpoint` says which API produced it, `parser` whether the LLM or the keyword
+fallback classified the message, and `degraded` is `null` only when every step
+succeeded.
+
+
 ```bash
 curl -X POST localhost:8007/chat -H "X-API-Key: dev-suvida-key" \
      -H 'Content-Type: application/json' \
@@ -772,6 +818,64 @@ async def collection_pipeline():
     return await GET("http://localhost:8004/analytics")
 ```
 
+### Chatbot → API mapping
+
+The pipeline above is the machine path. The chatbot is the *human* path onto
+the same APIs: it turns one sentence into one call and one answer.
+
+```
+POST /chat  {"message": "Show me waste stats"}
+     │
+     ├── 1. PARSE ─────────────────────────────────────────────────────────
+     │   intent, parser = await resolve_intent(message)
+     │
+     │       llm = await parse_intent_llm(message)      # acquired NLP engine
+     │       if llm.ok and llm.intent in INTENT_ENDPOINTS:
+     │           return llm.intent, "llm"               # validated, never trusted raw
+     │       return detect_intent(message), "keyword"   # offline floor
+     │
+     │   Entities are NEVER taken from the model:
+     │       bin_id   = BIN_ID_RE.search(message)       # bin_[0-9a-f]{6,16}
+     │       worker   = WORKER_ID_RE.search(message)    # wrk_[0-9a-f]{6,16}
+     │       points   = LATLNG_RE.findall(message)      # 12.972,77.595
+     │   One wrong hex digit from a model is a confident lookup of the wrong
+     │   bin that nothing downstream can catch. A regex matches or it doesn't.
+     │
+     ├── 2. ACT ───────────────────────────────────────────────────────────
+     │   match intent:
+     │     report_bin    -> POST /bin/report      {lat, lng, image?, notes}
+     │     identify      -> POST /waste/detect    {image_base64}
+     │     route (coords)-> POST /route/optimize  {bins:[{lat,lng}...]}
+     │     route (crew)  -> GET  /worker/v1/workers/{id}/queue   # -> /route
+     │     analytics     -> GET  /analytics
+     │     notify        -> POST /notify/pickup   {binId, recipient_type}
+     │     assign_worker -> POST /worker/assign   {binId, workerId?, location?}
+     │     pickup_status -> GET  /bin/api/v1/reports/{id}
+     │                    + GET  /worker/v1/assignments?job_ref={id}   # reconcile
+     │     help|offtopic -> answered locally, no call
+     │
+     │   Every call carries the callee's own auth — Bearer for FieldOps,
+     │   X-API-Key for SignalPost — and the same {ok, reason} contract as
+     │   every other consumer. A module that is down degrades one answer.
+     │
+     ├── 3. COMPOSE ───────────────────────────────────────────────────────
+     │   draft = template(intent, module_response)      # the facts, stated plainly
+     │   if OLLAMA_URL:
+     │       reply = await rephrase(draft, data)        # phrasing only
+     │       # prompt forbids any figure not present in DRAFT or DATA
+     │   else:
+     │       reply = draft
+     │
+     └── 4. RETURN ────────────────────────────────────────────────────────
+         ChatResponse(reply=text, intent=..., endpoint=..., parser=...,
+                      source=..., data=module_response, degraded=...)
+```
+
+**Two rules the mapping enforces.** A *question* never triggers a *send*:
+`pickup_status` reads `bin_reporting` and `worker_dashboard`, and never touches
+`POST /notify/pickup`, which messages a citizen. And the model classifies only
+— it never chooses a URL, never fills a parameter, and never sees a datastore.
+
 **Invariants**
 
 - Every outbound call is env-resolved, timeout-bounded (`DEPENDENCY_TIMEOUT_MS`,
@@ -781,6 +885,22 @@ async def collection_pipeline():
 - Load-bearing: `bin_reporting`, `worker_dashboard`, `notification_system`,
   `analytics_dashboard`. Optional: `waste_recognition`, `route_optimizer`.
 - The report is persisted **before** any peer call.
+
+### The chatbot's role — in short
+
+The chatbot is the network's human front door. Six services expose forty-odd
+endpoints with three different auth schemes between them; a resident should not
+have to know any of that to say a bin is overflowing. One sentence in, one API
+call out, one plain answer back — and the same envelope carries structured JSON
+so a dashboard can render a card instead of a paragraph.
+
+It is the only component that talks to all six, which makes it the natural
+place to reconcile them: when `bin_reporting` still says "assigned" and
+`worker_dashboard` says "completed", it trusts the crew and reports the bin as
+cleared. It is also the network's most degradable part by design — the language
+model classifies and rephrases, never decides or invents, so with no model
+installed the assistant still answers every question from templates and live
+module data.
 
 ---
 

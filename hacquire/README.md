@@ -10,8 +10,9 @@ pitch outline, and end-to-end summary.
 
 ```
 hacquire/
-├── main.py                 single-process app — six routers mounted in one FastAPI
-├── run_network.py          six-process network — one service per port
+├── main.py                 single-process app — seven routers in one FastAPI
+├── run_network.py          seven-process network — one service per port
+├── seed_demo.py            fills a running network with a week of activity
 ├── requirements.txt        one dependency set for the whole network
 ├── .env.example            every knob, with working defaults
 └── modules/
@@ -45,6 +46,14 @@ empty directory outside the repo answered `GET /optimizeRoute` correctly.
 ```bash
 pip install -r requirements.txt
 cp .env.example .env      # optional — every value has a working default
+```
+
+Seed it before demoing — on an empty store every KPI is zero, which is
+technically correct and useless in a screenshot:
+
+```bash
+python run_network.py       # terminal 1
+python seed_demo.py         # terminal 2 — a week of activity, ~60 bins
 ```
 
 `.env` is read by both entrypoints via `python-dotenv`, and only fills gaps:
@@ -164,7 +173,7 @@ It reaches **every other module** — the only component that does:
 | "overflowing bin at 12.972,77.595" *(+ optional `image`)* | `POST /bin/report` |
 | "what kind of waste is this" *(+ `image`)* | `POST /waste/detect` |
 | "plan a route for 12.95,77.62 and 13.00,77.57 …" | `POST /route/optimize` |
-| "how are we doing this week" | `GET /analytics` |
+| "Show me waste stats" | `GET /analytics` |
 | "let the resident know about bin_f4f6…" | `POST /notify/pickup` |
 | "assign Ravi to bin_f4f6…" | `POST /worker/assign` |
 | "has bin_f4f6… been collected" | `/bin` **and** `/worker`, reconciled |
@@ -186,6 +195,20 @@ the citizen. Wiring a status question to it would text a resident every time
 someone asked whether their bin had been emptied. Sending is its own intent,
 reached only when the user actually asks for someone to be told. Verified:
 three status questions in a row sent zero notifications.
+
+**Sample.** Against a seeded network:
+
+```
+POST /chat  {"message": "Show me waste stats"}
+
+{ "reply": "64 bins reported, 43 collected, 21 still outstanding — a collection
+            rate of 67%. Average time to clear: 11.9 minutes (90th percentile
+            24.0). 5 crew active, 47 notifications sent. Most common waste
+            type: plastic.",
+  "intent": "analytics", "endpoint": "GET /analytics",
+  "parser": "keyword", "source": "template",
+  "data": { "kpis": {...}, "charts": [...] }, "degraded": null }
+```
 
 ### How a message is resolved
 
