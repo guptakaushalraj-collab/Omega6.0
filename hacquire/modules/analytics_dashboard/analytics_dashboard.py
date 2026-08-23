@@ -2,25 +2,82 @@
 
 Ingests operational events and derives collection metrics.
 
+SELF-CONTAINED BY DESIGN. This single file is the whole module: datastore,
+metric derivation and HTTP surface, importing nothing from a sibling.
+
 PUSH-BASED BY DESIGN: it derives everything from events it is sent and never
 queries another module's API or reads another module's disk. That inversion is
 what makes it independently ownable — an operator running an entirely
 different stack adopts it by emitting six documented event shapes.
+
+Run standalone:      uvicorn analytics_dashboard:app --port 8004
+Needs:               fastapi  uvicorn  pydantic
+Env:                 PORT (default 8004), MAX_EVENTS
 """
+import json
 import os
+import secrets
+import threading
 from collections import Counter
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import FastAPI
+from fastapi import APIRouter, FastAPI, Request
 from pydantic import BaseModel, Field
-
-from .store import Store
 
 APP_VERSION = "1.0.0"
 MAX_EVENTS = int(os.getenv("MAX_EVENTS", 20000))
 
-app = FastAPI(title="analytics_dashboard", version=APP_VERSION)
+
+# ---------------------------------------------------------------------------
+# VENDORED DATASTORE
+#
+# This class is COPIED into every module that needs it, never imported across
+# module boundaries. ~40 duplicated lines is the deliberate price of being able
+# to hand a buyer this single file and have it run with no shared package to
+# untangle. Swap the body for a real database client; no route changes.
+# ---------------------------------------------------------------------------
+class Store:
+    def __init__(self, empty: dict, filename: str = "store.json"):
+        self._empty = empty
+        self._path = Path(__file__).resolve().parent / "data" / filename
+        self._lock = threading.Lock()
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        if not self._path.exists():
+            self._write_unlocked(empty)
+
+    def _write_unlocked(self, data: dict) -> None:
+        # Write-then-rename: a crash mid-write leaves the previous file intact
+        # rather than a truncated one.
+        tmp = self._path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(data, indent=2))
+        tmp.replace(self._path)
+
+    def read(self) -> dict:
+        with self._lock:
+            try:
+                return json.loads(self._path.read_text())
+            except (FileNotFoundError, json.JSONDecodeError):
+                return json.loads(json.dumps(self._empty))
+
+    def write(self, data: dict) -> None:
+        with self._lock:
+            self._write_unlocked(data)
+
+    def reset(self) -> None:
+        self.write(json.loads(json.dumps(self._empty)))
+
+    @staticmethod
+    def new_id(prefix: str) -> str:
+        return f"{prefix}_{secrets.token_hex(6)}"
+
+    @staticmethod
+    def now() -> str:
+        return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+router = APIRouter()
 store = Store({"events": []})
 
 EVENT_TYPES = [
@@ -139,17 +196,17 @@ def trend(events: list[dict], days: int = 7) -> list[dict]:
     return out
 
 
-@app.get("/api/v1/health")
+@router.get("/api/v1/health")
 def health():
     return {"ok": True, "module": "analytics_dashboard", "version": APP_VERSION}
 
 
-@app.get("/api/v1/event-types")
+@router.get("/api/v1/event-types")
 def event_types():
     return EVENT_TYPES
 
 
-@app.post("/api/v1/events", status_code=202)
+@router.post("/api/v1/events", status_code=202)
 def ingest(evt: EventIn):
     """Ingest one event.
 
@@ -175,7 +232,7 @@ def ingest(evt: EventIn):
     return {"accepted": True, "id": record["id"], "known_type": record["known_type"]}
 
 
-@app.get("/api/v1/events")
+@router.get("/api/v1/events")
 def list_events(type: Optional[str] = None, subject_id: Optional[str] = None, limit: int = 100):
     events = store.read()["events"]
     if type:
@@ -185,18 +242,18 @@ def list_events(type: Optional[str] = None, subject_id: Optional[str] = None, li
     return list(reversed(events[-min(limit, 1000):]))
 
 
-@app.get("/api/v1/summary")
+@router.get("/api/v1/summary")
 def summary():
     return summarize(store.read()["events"])
 
 
-@app.get("/api/v1/trends")
+@router.get("/api/v1/trends")
 def trends(days: int = 7):
     days = max(1, min(days, 90))
     return {"days": days, "series": trend(store.read()["events"], days)}
 
 
-@app.get("/analytics")
+@router.get("/analytics")
 def analytics(days: int = 7):
     """Flat alias returning CHART-READY data.
 
@@ -254,6 +311,51 @@ def analytics(days: int = 7):
         },
         "summary": s,
     }
+
+
+@router.get("/", include_in_schema=False)
+def index(request: Request):
+    """Root index.
+
+    Exists because a bare `GET /` otherwise returns {"detail": "Not Found"} —
+    the first thing anyone does with a new service is open its root in a
+    browser, and a bare 404 tells them nothing about whether the thing is even
+    running.
+
+    Route list is derived from `router.routes`, not hand-written, so it cannot
+    drift as routes are added. `mounted_at` comes from the request path, so the
+    links are correct whether this runs standalone on its own port or behind a
+    prefix inside the composed app.
+    """
+    base = request.url.path.rstrip("/")
+    paths = sorted({r.path for r in router.routes
+                     if getattr(r, "path", None) and r.path != "/"})
+    return {
+        "module": "analytics_dashboard",
+        "version": APP_VERSION,
+        "position": "SOLD $35,000 — operational metrics",
+        "status": "running",
+        "docs": "/docs",
+        "openapi": "/openapi.json",
+        "mounted_at": base or "/",
+        "routes": [base + p for p in paths],
+    }
+
+
+# --------------------------------------------------------------- packaging
+# TWO DEPLOYMENT SHAPES, ONE IMPLEMENTATION.
+#
+#   router — mount into any FastAPI app:
+#              app.include_router(router, prefix="/analytics")
+#   app    — run this module as its own service:
+#              uvicorn analytics_dashboard:app --port 8004
+#
+# The router is the unit of COMPOSITION; the app is the unit of SALE. Exposing
+# both means the single-process monolith and the six-service network are the
+# same code, so choosing one deployment today does not foreclose the other —
+# and a buyer still receives a service, not a fragment of ours.
+app = FastAPI(title="analytics_dashboard", version=APP_VERSION)
+app.include_router(router)
 
 
 if __name__ == "__main__":

@@ -2,64 +2,147 @@
 ## Intelligent Waste Collection Network
 
 **Stack:** Python 3.11 · FastAPI · Pydantic v2 · httpx · uvicorn
-**Shape:** six independently deployable, independently tradable services
+**Shape:** seven independently deployable, independently tradable services
 
 Every endpoint, payload and figure below was executed against the running mesh
 before being written down. Nothing here is illustrative-only.
+
+The chatbot integration has its own standalone document —
+**[CHATBOT-INTEGRATION.md](./CHATBOT-INTEGRATION.md)** — covering objective,
+intent→API mapping, pseudocode, starter code and transfer evidence in one
+place. This plan keeps the network-wide view.
 
 ---
 
 ## 1. Full Folder Tree & Code Scaffolding
 
 ```
-hacquire/
-├── modules/                                SIX TRADABLE SERVICES
-│   │                                       No shared code. No shared database.
-│   │                                       Each directory runs on its own.
-│   │
-│   ├── bin_reporting/                      :8001  HELD — the entry point
-│   │   ├── app/
-│   │   │   ├── main.py                     Intake + lifecycle + flat aliases
-│   │   │   ├── clients.py                  Outbound: env-resolved, timeout-bounded,
-│   │   │   │                               never raises — returns {ok, reason}
-│   │   │   ├── store.py                    Vendored JSON store (module-local)
-│   │   │   └── data/store.json             Runtime state (gitignored)
-│   │   ├── mocks/reports.json              Seed fixtures
-│   │   ├── requirements.txt
-│   │   └── .env.example
-│   │
-│   ├── waste_recognition/                  :8002  SOLD — $42,000
-│   │   └── app/main.py                     classify() is the MODEL BOUNDARY —
-│   │                                       swap the body for real inference,
-│   │                                       keep the return shape, no consumer
-│   │                                       changes
-│   │
-│   ├── route_optimizer/                    :8003  SOLD — $28,000
-│   │   └── app/main.py                     Nearest-neighbour + 2-opt.
-│   │                                       Stateless: no store, no deps
-│   │
-│   ├── analytics_dashboard/                :8004  SOLD — $35,000
-│   │   └── app/main.py                     Push-based. Derives everything from
-│   │                                       events it is SENT; never queries
-│   │                                       another module
-│   │
-│   ├── notification_system/                :8005  BOUGHT — SignalPost Relay 2.4.1
-│   │   └── app/main.py                     /v1 · X-API-Key · snake_case ·
-│   │                                       {"error":{"code","message"}}
-│   │                                       Vendor conventions RETAINED
-│   │
-│   └── worker_dashboard/                   :8006  BOUGHT — FieldOps Crew 3.1.0
-│       └── app/
-│           ├── main.py                     /v1 · Bearer · {"error","detail"}
-│           │                               job_ref, not bin_id — domain-neutral
-│           └── clients.py                  Carries the adaptation for the OTHER
-│                                           acquired module, at the call site
+hacquire/                                   PROJECT ROOT
 │
-├── scripts/run_mesh.py                     Boot all six, dependencies pre-wired
+├── main.py                                 SINGLE-PROCESS deployment. Mounts all
+│                                           seven as routers in one FastAPI app:
+│                                           uvicorn main:app
+│
+├── run_network.py                          DISTRIBUTED deployment. Boots the seven
+│                                           as SEPARATE PROCESSES and injects
+│                                           each one's dependency URLs. Neither
+│                                           file is a dependency — no module
+│                                           imports either of them.
+│
+├── requirements.txt                        One dependency set for the network.
+│                                           Each module also names its own
+│                                           subset in its docstring header.
+│
+├── .env.example                            Every knob: ports, credentials,
+│                                           dependency URLs, timeouts. Copy to
+│                                           .env. All values have working
+│                                           defaults — it runs with no .env.
+│
+├── modules/                                SEVEN TRADABLE SERVICES
+│   │                                       ONE MODULE IS ONE FILE, exposing two
+│   │                                       handles: `router` (the unit of
+│   │                                       COMPOSITION) and `app` (the unit of
+│   │                                       SALE). Datastore, outbound adapters
+│   │                                       and HTTP surface all inside it. No
+│   │                                       shared code, no shared database,
+│   │                                       zero cross-module imports —
+│   │                                       verified. Even composed into one
+│   │                                       process they call each other over
+│   │                                       HTTP, never by import.
+│   │
+│   ├── bin_reporting/
+│   │   ├── bin_reporting.py                :8001  HELD — the entry point.
+│   │   │                                   Intake + lifecycle + flat aliases.
+│   │   │                                   Persist-then-enrich; outbound calls
+│   │   │                                   are env-resolved, timeout-bounded
+│   │   │                                   and never raise — {ok, reason}.
+│   │   ├── mocks/reports.json              Seed fixtures
+│   │   ├── data/store.json                 Runtime state (gitignored)
+│   │   └── uploads/                        Submitted photos (gitignored)
+│   │
+│   ├── waste_recognition/
+│   │   ├── waste_recognition.py            :8002  SOLD — $42,000
+│   │   │                                   classify() is the MODEL BOUNDARY —
+│   │   │                                   swap the body for real inference,
+│   │   │                                   keep the return shape, no consumer
+│   │   │                                   changes. Zero outbound deps.
+│   │   └── mocks/classifications.json
+│   │
+│   ├── route_optimizer/
+│   │   ├── route_optimizer.py              :8003  SOLD — $28,000
+│   │   │                                   Nearest-neighbour + 2-opt.
+│   │   │                                   Stateless: no store, no deps, so it
+│   │   │                                   scales horizontally for free.
+│   │   └── mocks/scenarios.json
+│   │
+│   ├── analytics_dashboard/
+│   │   ├── analytics_dashboard.py          :8004  SOLD — $35,000
+│   │   │                                   Push-based. Derives everything from
+│   │   │                                   events it is SENT; never queries
+│   │   │                                   another module.
+│   │   └── mocks/events.json
+│   │
+│   ├── notification_system/
+│   │   ├── notification_system.py          :8005  BOUGHT — SignalPost Relay 2.4.1
+│   │   │                                   /v1 · X-API-Key · snake_case ·
+│   │   │                                   {"error":{"code","message"}}
+│   │   │                                   Vendor conventions RETAINED.
+│   │   └── mocks/messages.json
+│   │
+│   └── worker_dashboard/
+│       ├── worker_dashboard.py             :8006  BOUGHT — FieldOps Crew 3.1.0
+│       │                                   /v1 · Bearer · {"error","detail"}
+│       │                                   job_ref, not bin_id — domain-neutral.
+│       │                                   Its adapter block carries the
+│       │                                   translation for the OTHER acquired
+│       │                                   module, at the call site.
+│       └── mocks/{workers,assignments}.json
+│   │
+│   └── chatbot/                            TRANSFER-READY — 4 files, no repo
+│       ├── chatbot.py                      :8007  BOUGHT — Suvida Chatbot
+│       │                                   Conversational front door. Reaches
+│       │                                   ALL SIX other modules over HTTP —
+│       │                                   the only component that does. A
+│       │                                   local LLM only rephrases, and is
+│       │                                   entirely optional.
+│       ├── LICENSE                         Chain of title from the acquisition,
+│       │                                   what transfers, disclosed defect
+│       ├── module.json                     Manifest: provides / consumes /
+│       │                                   required_dependencies: []
+│       └── mocks/
+│           ├── conversations.json
+│           └── vendor_prompt_transport.txt PRESERVED vendor asset — the
+│                                           original TravelBuddy persona,
+│                                           resaleable to a transit operator
+│
+├── seed_demo.py                            Populates a running network with a
+│                                           week of plausible activity, so KPIs
+│                                           and trend charts have something to
+│                                           show. Live reports through the real
+│                                           pipeline + backdated analytics
+│                                           events for history.
+│
+├── README.md                               Run instructions + design rules
 └── PRODUCT-PLAN.md                         This document
 ```
 
-### Starter code — the model boundary (`waste_recognition/app/main.py`)
+**Two deployments, one implementation.** `uvicorn main:app` runs everything in
+one process behind prefixes (`POST /bin/reportBin`); `python run_network.py`
+runs seven services on seven ports (`POST /reportBin`). Composition is cheaper to
+operate and demo, but it costs the three sold modules their independent
+deploy, scale and release — and prefixes every published path. Exposing both
+`router` and `app` means that choice stays reversible, and a buyer still
+receives a service rather than a fragment.
+
+**Why one file per module.** Directory-per-module with its own package, its own
+`requirements.txt` and its own `.env` is the textbook shape, but it makes a
+handover a repository migration. Collapsed to a single file, a sale is a file
+copy: `route_optimizer.py` lifted alone into an empty directory outside this
+repo answered `GET /optimizeRoute` correctly with nothing else present. The
+per-module dependency list survives as a docstring header, so a buyer still
+knows exactly what to `pip install`.
+
+### Starter code — the model boundary (`modules/waste_recognition/waste_recognition.py`)
 
 ```python
 TAXONOMY = [
@@ -94,7 +177,7 @@ def classify(image: bytes) -> dict:
             "alternatives": alternatives, "model_version": MODEL_VERSION}
 ```
 
-### Starter code — persist-then-enrich (`bin_reporting/app/main.py`)
+### Starter code — persist-then-enrich (`modules/bin_reporting/bin_reporting.py`)
 
 ```python
 async def create_report(location, *, photo_filename=None, auto_assign=True, **meta):
@@ -133,7 +216,7 @@ async def create_report(location, *, photo_filename=None, auto_assign=True, **me
     return {"report": report, "degraded": degraded or None}
 ```
 
-### Starter code — the degradation contract (`clients.py`, both consumers)
+### Starter code — the degradation contract (adapter block, both consumers)
 
 ```python
 async def _request(method: str, url: str, **kw) -> dict:
@@ -154,26 +237,58 @@ async def _request(method: str, url: str, **kw) -> dict:
         return {"ok": False, "reason": "unreachable"}
 ```
 
-### `.env.example` (abridged — every module ships its own)
+### `.env.example` (abridged — one file, at the project root)
 
 ```bash
-# bin_reporting — HELD
-PORT=8001
-# OPTIONAL DEPENDENCIES. With none set this is a self-contained intake log —
-# the minimum a buyer gets with no other purchase.
-WASTE_RECOGNITION_URL=http://localhost:8002   # absent → stored unclassified
-WORKER_DASHBOARD_URL=http://localhost:8006    # absent → stays "reported"
-ANALYTICS_URL=http://localhost:8004           # absent → metrics lose a point
-CREW_AUTH_TOKEN=dev-fieldops-token
-DEPENDENCY_TIMEOUT_MS=2500                    # bounds INTAKE latency
+# ---- topology -------------------------------------------------------------
+SERVICE_HOST=localhost          # how the modules address EACH OTHER
+BIN_REPORTING_PORT=8001
+WASTE_RECOGNITION_PORT=8002
+ROUTE_OPTIMIZER_PORT=8003
+ANALYTICS_DASHBOARD_PORT=8004
+NOTIFICATION_SYSTEM_PORT=8005
+WORKER_DASHBOARD_PORT=8006
 
-# notification_system — BOUGHT
-NOTIFY_API_KEY=dev-signalpost-key
-# SECURITY: public knowledge — it is the fallback in app/main.py. Change before
-# exposing, and update every caller.
-# NOT INCLUDED IN THE ACQUISITION: sms/email/push queue but never send.
-# SIGNALPOST_GATEWAY_KEY=   ← not read by this build
+# ---- credentials ----------------------------------------------------------
+# SECURITY: both defaults are PUBLIC KNOWLEDGE — they are the fallbacks baked
+# into the module source so a fresh clone runs. Change before exposing
+# anything beyond localhost.
+NOTIFY_API_KEY=dev-signalpost-key     # X-API-Key  (notification_system)
+CREW_AUTH_TOKEN=dev-fieldops-token    # Bearer     (worker_dashboard)
+
+# ---- dependencies ---------------------------------------------------------
+# Each module consumes CAPABILITIES, never named modules, and reaches them at
+# a URL. Unset → main.py points at the local process. Set one → that module is
+# repointed. This single indirection is what lets a SOLD module keep serving
+# us from the buyer's infrastructure with no code change on either side.
+# WASTE_RECOGNITION_URL=https://classify.buyer-hosted.example
+# ROUTE_OPTIMIZER_URL=https://routing.buyer-hosted.example
+# ANALYTICS_DASHBOARD_URL=https://metrics.buyer-hosted.example
+
+DEPENDENCY_TIMEOUT_MS=2500      # bounds citizen-facing INTAKE latency
+
+# ---- retention ------------------------------------------------------------
+MAX_EVENTS=20000                # analytics_dashboard, oldest-first eviction
+MAX_MESSAGES=10000              # notification_system
+
+# NOT INCLUDED IN THE ACQUISITION: notification_system delivers in_app only.
+# sms/email/push queue but never send — the gateway credentials were not part
+# of the asset purchase.
+# SIGNALPOST_GATEWAY_KEY=       ← not read by this build
 ```
+
+Both entrypoints read this file through `python-dotenv`, with
+`override=False`: it fills gaps only, so an exported value or a container
+platform's injection always wins over a checked-in default. The modules never
+load it themselves — they read `os.environ` and do not care who filled it,
+which is exactly what lets one drop into a buyer's stack unchanged.
+
+**Dependencies.** `pip install fastapi` pulls pydantic, starlette and
+typing-extensions and nothing else; `httpx` and `python-multipart` arrive only
+with the `[standard]` extra, so both are declared explicitly. Verified by
+blocking each import in turn: without `httpx`, `bin_reporting` and
+`worker_dashboard` fail to import; without `python-multipart`, `bin_reporting`
+and `waste_recognition` raise at route-definition time.
 
 ### Mock datasets
 
@@ -206,9 +321,10 @@ an error.
 
 ```bash
 pip install fastapi uvicorn pydantic httpx python-multipart
-python hacquire/scripts/run_mesh.py           # all six, dependencies wired
+uvicorn main:app                              # one process, prefixed paths
+python hacquire/run_network.py                # seven processes, seven ports
 # or standalone:
-cd hacquire/modules/waste_recognition && uvicorn app.main:app --port 8002
+cd hacquire/modules/waste_recognition && uvicorn waste_recognition:app --port 8002
 ```
 
 ---
@@ -226,6 +342,7 @@ original vendor conventions rather than being normalised.
 | analytics_dashboard | 8004 | `/api/v1` | none |
 | notification_system | 8005 | `/v1` | `X-API-Key` |
 | worker_dashboard | 8006 | `/v1` | `Authorization: Bearer` |
+| chatbot | 8007 | *(flat)* | `X-API-Key` |
 
 ### Reporting bins — `POST /reportBin` *(bin_reporting)*
 
@@ -255,7 +372,62 @@ Canonical equivalents: `POST /api/v1/reports` (JSON) ·
 `GET /api/v1/reports/{id}` · `PATCH /api/v1/reports/{id}/status` ·
 `POST /api/v1/reports/{id}/reclassify`
 
-### Detecting waste type — `POST /detectWasteType` *(bin_reporting)*
+**Short form — `POST /report`.** Same pipeline, smaller envelope, for callers
+that only need to know the submission landed. Accepts the fields as a JSON
+body or as query parameters; the body wins when both are given.
+
+**Live response** `201`:
+
+```json
+{
+  "status": "success",
+  "binId": "bin_81ac6f7caaa8",
+  "location": "12.972,77.595",
+  "binStatus": "assigned",
+  "type": "plastic",
+  "assignedWorker": "Asha Kumar",
+  "degraded": null
+}
+```
+
+`status` is the outcome of the CALL; `binStatus` is the bin's lifecycle state.
+They are separate keys on purpose — a report can be accepted while dispatch
+degrades, and collapsing them would hide exactly that. Prefer the JSON body:
+a base64 photo in a query string exceeds common request-line limits and gets
+copied into access logs, history and `Referer` headers.
+
+### Detecting waste type — two endpoints, two different keys
+
+`POST /detect` exists on **both** `bin_reporting` and `waste_recognition`, and
+the difference is the whole architecture in miniature:
+
+| | Key | Reaches | Use when |
+|---|---|---|---|
+| `bin_reporting` `POST /detect` | `binId` | its own records, cached | you have a reported bin |
+| `waste_recognition` `POST /detect` | `image_base64` | nothing — stateless | you have a photo |
+
+The classifier **cannot** take a `binId`. It is a stateless leaf that only ever
+sees bytes; resolving an id would mean calling back into `bin_reporting`,
+creating a cycle and costing it the dependency-free property that makes it the
+registry's most sellable component. So the id-keyed route lives with the module
+that owns the record, and it caches — asking twice does not pay for inference
+twice.
+
+```json
+// waste_recognition — POST /detect  {"image_base64": "<base64>"}
+{
+  "type": "e-waste", "label": "E-Waste", "confidence": 0.88,
+  "recyclable": true, "hazardous": true,
+  "alternatives": [
+    { "type": "glass", "label": "Glass", "confidence": 0.4 },
+    { "type": "paper", "label": "Paper", "confidence": 0.26 }
+  ],
+  "model_version": "stub-cv-1.0.0",
+  "classificationId": "cls_a2d1bc5c67ed", "reference": "bin_3e5dde47a201"
+}
+```
+
+### `POST /detectWasteType` *(bin_reporting)*
 
 ```json
 { "binId": "bin_90b813b2c556" }
@@ -280,6 +452,24 @@ another inference call. Send `"force": true` to re-run.
 Direct classification: `POST /api/v1/classify` (base64) ·
 `POST /api/v1/classify-upload` (multipart) · `GET /api/v1/waste-types` ·
 `GET /api/v1/classifications[/{id}]`
+
+### Optimizing routes — `POST /optimize` · `GET /optimizeRoute?bins=[...]` *(route_optimizer)*
+
+The POST twin exists for callers with more stops than fit in a query string —
+a URL has a practical ceiling near 2 KB, and 200 coordinate pairs blow straight
+through it. Same parsing, same response, shared implementation, so the two
+cannot drift.
+
+```json
+// POST /optimize
+{ "bins": [ {"lat": 12.955, "lng": 77.620}, {"lat": 13.005, "lng": 77.570},
+            {"lat": 12.975, "lng": 77.640}, {"lat": 12.935, "lng": 77.600} ],
+  "start": "12.972,77.595" }
+```
+
+Both are still stateless: `bins` must carry coordinates. Resolving a bin id
+would mean calling `bin_reporting` and forfeiting the dependency-free property
+that makes this the registry's cleanest asset.
 
 ### Optimizing routes — `GET /optimizeRoute?bins=[...]` *(route_optimizer)*
 
@@ -342,10 +532,199 @@ curl -X POST localhost:8005/notifyPickup -H "X-API-Key: dev-signalpost-key" \
   "message": "Good news — the bin you reported has been picked up. …" }
 ```
 
-**Auth is enforced on the alias** — verified `401` without a key, `403` with a
-wrong one. An alias must never become a way around authentication.
-Also: `POST /v1/messages` · `GET /v1/messages` · `POST /v1/messages/{id}/ack` ·
+**Short form — `POST /pickup`.** Same send, `{binId, message}` envelope:
+
+```json
+{
+  "binId": "bin_adede7376e96", "message": "Pickup completed",
+  "sent": true, "messageId": "msg_27195e59510c",
+  "recipient": "citizen", "channel": "in_app", "delivery_status": "delivered",
+  "notification": "Good news — the bin you reported has been picked up. …"
+}
+```
+
+Three separate facts, three keys. `message` states the EVENT — the pickup
+happened. `delivery_status` says whether the alert actually reached anyone.
+`notification` is the text that was sent. They cannot be collapsed: only
+`in_app` delivers in this build, so `channel=sms` legitimately returns
+`"message": "Pickup completed"` alongside `"delivery_status": "queued"` and
+`"sent": false` — verified.
+
+**AUTH IS ENFORCED ON BOTH ALIASES** — `401` without a key, `403` with a wrong
+one, in the vendor's envelope. These routes sit outside `/v1`, so the key
+check is attached explicitly rather than inherited. An unauthenticated
+notification endpoint is a spam vector: anyone who finds the URL can push
+messages to citizens in the city's name. An alias must never become a way
+around authentication, however convenient that would be for a demo.
+
+The vendor surface is untouched and additive-only, so a new owner can delete
+every house alias without breaking a single documented SignalPost endpoint:
+`POST /v1/messages` · `GET /v1/messages` · `POST /v1/messages/{id}/ack` ·
 `POST /v1/messages/ack_all` · `GET /v1/channels`
+
+### Assigning work — `POST /assign` *(worker_dashboard)*
+
+`POST /v1/assignments` only ever dispatches the nearest AVAILABLE worker — the
+right default, and the wrong answer when a supervisor needs a specific person
+on a specific job. `/assign` does both:
+
+| Input | Behaviour |
+|---|---|
+| `binId` + `workerId` + `location` | that worker takes the new job |
+| `binId` + `location` | nearest available takes it (as `/v1` does) |
+| `binId` + `workerId` | **reassign** an open job, reusing its stored location |
+
+**Live response** `201`:
+
+```json
+{
+  "binId": "bin_alpha", "workerId": "wrk_131cea558065", "status": "assigned",
+  "assignmentId": "asg_0ea4c2c58965", "workerName": "Ravi Patel",
+  "distance_km": 5.68, "mode": "manual", "reassignedFrom": null,
+  "side_effects": { "notification": "sent", "analytics": "recorded" }
+}
+```
+
+A named worker may already be `busy` — stacking stops onto one round is what
+manual assignment is *for*, and the optimizer sequences them (verified: two
+stops, 4.62 km, nearest-neighbour + 2-opt). `off_shift` is refused with `409`.
+Reassigning frees the previous worker only if they hold no other open job.
+
+**Location cannot be looked up.** This module has no idea what a bin is, let
+alone where — resolving one would mean calling back into `bin_reporting` and
+creating a cycle. A new job needs coordinates; a reassignment reuses the ones
+already on the record.
+
+**Vocabulary stays quarantined.** `binId` is accepted on this alias because
+the alias is ours. Underneath it is still `job_ref`: FieldOps sells the same
+product into field service, logistics and utilities, and that domain-neutral
+core is what keeps its resale value beyond waste collection. Verified — an
+assignment record carries `job_ref` and no `binId`.
+
+### Conversation — `POST /chat` *(chatbot)*
+
+**Sample — asking for the numbers.** Captured against a seeded network
+(`python seed_demo.py`), not written by hand. The seed is fixed, so the reply
+below reproduces byte-for-byte on a same-day run; volumes branch on weekday for
+a realistic trend line, so totals shift if you seed on another day:
+
+```bash
+curl -X POST localhost:8007/chat -H "X-API-Key: dev-suvida-key" \
+     -H 'Content-Type: application/json' \
+     -d '{"message": "Show me waste stats"}'
+```
+
+```json
+{
+  "reply": "64 bins reported, 43 collected, 21 still outstanding — a collection rate of 67%. Average time to clear: 11.9 minutes (90th percentile 24.0). 5 crew active, 47 notifications sent. Most common waste type: plastic.",
+  "intent": "analytics",
+  "endpoint": "GET /analytics",
+  "parser": "keyword",
+  "source": "template",
+  "data": {
+    "kpis": {
+      "reported": 64, "collected": 43, "outstanding": 21,
+      "collection_rate": 0.672,
+      "avg_resolution_minutes": 11.9, "p90_resolution_minutes": 24.0,
+      "active_workers": 5, "notifications_sent": 47
+    },
+    "charts": ["daily_activity", "waste_mix", "worker_leaderboard", "status_breakdown"]
+  },
+  "degraded": null,
+  "history": [{ "user": "Show me waste stats", "assistant": "64 bins reported, …" }]
+}
+```
+
+`reply` is the vendor contract — an existing client reads it and ignores the
+rest. `data.kpis` drives tiles, `data.charts` drives graphs, `endpoint` names
+the API that answered, `parser` says LLM or keyword, and `degraded` is `null`
+only when every step succeeded.
+
+
+```bash
+curl -X POST localhost:8007/chat -H "X-API-Key: dev-suvida-key" \
+     -H 'Content-Type: application/json' \
+     -d '{"message":"there is an overflowing bin at 12.972,77.595"}'
+```
+
+**Live response** `200`:
+
+```json
+{
+  "reply": "Logged — reference bin_f4f67b11bac5. Asha Kumar has been assigned.",
+  "intent": "report_bin",
+  "source": "template",
+  "degraded": { "intake_enrichment": "{\"classification\": \"no_photo_supplied\"}" },
+  "data": { "binId": "bin_f4f67b11bac5", "status": "assigned",
+            "assignedWorker": "Asha Kumar" },
+  "history": [ { "user": "there is an overflowing bin at 12.972,77.595",
+                 "assistant": "Logged — reference bin_f4f67b11bac5. …" } ]
+}
+```
+
+`reply`, `message` and `history` are the vendor's contract, unchanged. The
+other keys are additive, so a client written against the acquired API still
+works: `intent` and `data` let a UI render a card instead of a wall of text,
+`source` says whether a model was involved, `degraded` names what was skipped.
+
+**Nine intents.** Resolution is two-stage: the acquired NLP engine parses,
+keyword routing is the floor beneath it (21/21 on its own routing set).
+The assistant reaches **every other module**; nothing else in the network does:
+
+| Intent | Calls | Example |
+|---|---|---|
+| `report_bin` | `POST /bin/report` | "overflowing bin at 12.972,77.595" |
+| `identify` | `POST /waste/detect` | "what kind of waste is this" + `image` |
+| `route` (coords) | `POST /route/optimize` | "plan a route for 12.95,77.62 and …" |
+| `analytics` | `GET /analytics` | "how are we doing this week" |
+| `notify` | `POST /notify/pickup` | "let the resident know about bin_f4f6…" |
+| `assign_worker` | `POST /worker/assign` | "assign Ravi to bin_f4f6…" |
+| `pickup_status` | `/bin` **and** `/worker`, reconciled | "has bin_f4f6… been collected" |
+| `route` (worker) | `/worker` queue → `/route` | "what is on Asha's round" |
+| `worker` | `/worker` workers / assignments | "who is assigned to bin_f4f6…" |
+| `help` · `offtopic` | answered locally | — |
+
+**The model proposes; the module disposes.** Its answer is validated against
+the known intent set, and it classifies only — ids and coordinates are always
+regex-extracted, because one wrong hex digit in `bin_eb6f4a5ad6c7` is a
+confident lookup of the wrong bin that nothing downstream can catch. Exercised
+against a stub speaking Ollama's API:
+
+| Case | Result |
+|---|---|
+| paraphrase, no keyword overlap | parsed correctly via LLM |
+| fenced ```` ```json ```` output | recovered |
+| prose instead of JSON | rejected → keywords, `unparseable` |
+| hallucinated `delete_everything` | rejected → keywords, `invalid_intent` |
+| model killed mid-conversation | degraded to keywords, reason named |
+
+**"Check pickup" is a READ** — `bin_reporting` + `worker_dashboard`, never
+`POST /notify/pickup`, which messages the citizen. Verified: three status
+questions, zero notifications sent.
+
+Each mapping was verified server-side rather than from the reply text: the bin record
+and stored photo in `bin_reporting`, a logged classification in
+`waste_recognition`, the 2-opt saving in the optimizer response, the event
+counts in `analytics_dashboard`, the messages in `notification_system`, and
+the assignment in `worker_dashboard`.
+
+**Two routing-order bugs, recorded.** A bin-id fallback running *first*
+swallowed every new verb ("assign Ravi to bin_x" → status lookup); a score tie
+sent "notify the crew" to the crew list. Fallback now runs last, actions
+outrank lookups.
+
+**Reconciliation.** `bin_reporting` owns the report; `worker_dashboard` owns
+the job. A completed assignment is never pushed back to `bin_reporting` —
+doing so would make a domain-neutral, resaleable module learn what a bin is —
+so the report can still read `assigned` after the bin is emptied. Verified
+live: report `assigned`, crew `completed`, analytics `collected`. The
+assistant is the only component that already talks to both, so it reconciles
+and trusts the crew record, reporting *"bin_f4f6… has been cleared"* with the
+divergence recorded in `data.reconciled`. Telling a citizen standing beside an
+empty bin that it has not been collected is the one wrong answer that costs
+trust in the whole service.
+
+**Also:** `GET /health` · `GET /intents` (auth) · `GET /conversations` (auth)
 
 ### Worker dashboard — `GET /v1/workers/{id}/queue` *(worker_dashboard)*
 
@@ -362,8 +741,18 @@ Also: `POST /v1/messages` · `GET /v1/messages` · `POST /v1/messages/{id}/ack` 
 Degraded (optimizer down) — a useful answer, not an error:
 
 ```json
-{ "optimized": false, "degraded_reason": "unreachable",
-  "total_distance_km": null, "stops": [ … unordered … ] }
+{
+  "worker_id": "wrk_b64a09d86f26", "worker_name": "Asha Kumar",
+  "optimized": false,
+  "degraded_reason": "unreachable",
+  "total_distance_km": null,
+  "stops": [
+    { "assignment_id": "asg_c0a1edd83de2", "job_ref": "bin_547d42fce718",
+      "location": { "lat": 12.972, "lng": 77.595 }, "metadata": {} },
+    { "assignment_id": "asg_9232babf5ec5", "job_ref": "bin_a9f5f5a4cb8d",
+      "location": { "lat": 12.955, "lng": 77.62 },  "metadata": {} }
+  ]
+}
 ```
 
 `POST /v1/assignments` returns the assignment plus a `side_effects` block
@@ -437,6 +826,64 @@ async def collection_pipeline():
     return await GET("http://localhost:8004/analytics")
 ```
 
+### Chatbot → API mapping
+
+The pipeline above is the machine path. The chatbot is the *human* path onto
+the same APIs: it turns one sentence into one call and one answer.
+
+```
+POST /chat  {"message": "Show me waste stats"}
+     │
+     ├── 1. PARSE ─────────────────────────────────────────────────────────
+     │   intent, parser = await resolve_intent(message)
+     │
+     │       llm = await parse_intent_llm(message)      # acquired NLP engine
+     │       if llm.ok and llm.intent in INTENT_ENDPOINTS:
+     │           return llm.intent, "llm"               # validated, never trusted raw
+     │       return detect_intent(message), "keyword"   # offline floor
+     │
+     │   Entities are NEVER taken from the model:
+     │       bin_id   = BIN_ID_RE.search(message)       # bin_[0-9a-f]{6,16}
+     │       worker   = WORKER_ID_RE.search(message)    # wrk_[0-9a-f]{6,16}
+     │       points   = LATLNG_RE.findall(message)      # 12.972,77.595
+     │   One wrong hex digit from a model is a confident lookup of the wrong
+     │   bin that nothing downstream can catch. A regex matches or it doesn't.
+     │
+     ├── 2. ACT ───────────────────────────────────────────────────────────
+     │   match intent:
+     │     report_bin    -> POST /bin/report      {lat, lng, image?, notes}
+     │     identify      -> POST /waste/detect    {image_base64}
+     │     route (coords)-> POST /route/optimize  {bins:[{lat,lng}...]}
+     │     route (crew)  -> GET  /worker/v1/workers/{id}/queue   # -> /route
+     │     analytics     -> GET  /analytics
+     │     notify        -> POST /notify/pickup   {binId, recipient_type}
+     │     assign_worker -> POST /worker/assign   {binId, workerId?, location?}
+     │     pickup_status -> GET  /bin/api/v1/reports/{id}
+     │                    + GET  /worker/v1/assignments?job_ref={id}   # reconcile
+     │     help|offtopic -> answered locally, no call
+     │
+     │   Every call carries the callee's own auth — Bearer for FieldOps,
+     │   X-API-Key for SignalPost — and the same {ok, reason} contract as
+     │   every other consumer. A module that is down degrades one answer.
+     │
+     ├── 3. COMPOSE ───────────────────────────────────────────────────────
+     │   draft = template(intent, module_response)      # the facts, stated plainly
+     │   if OLLAMA_URL:
+     │       reply = await rephrase(draft, data)        # phrasing only
+     │       # prompt forbids any figure not present in DRAFT or DATA
+     │   else:
+     │       reply = draft
+     │
+     └── 4. RETURN ────────────────────────────────────────────────────────
+         ChatResponse(reply=text, intent=..., endpoint=..., parser=...,
+                      source=..., data=module_response, degraded=...)
+```
+
+**Two rules the mapping enforces.** A *question* never triggers a *send*:
+`pickup_status` reads `bin_reporting` and `worker_dashboard`, and never touches
+`POST /notify/pickup`, which messages a citizen. And the model classifies only
+— it never chooses a URL, never fills a parameter, and never sees a datastore.
+
 **Invariants**
 
 - Every outbound call is env-resolved, timeout-bounded (`DEPENDENCY_TIMEOUT_MS`,
@@ -446,6 +893,149 @@ async def collection_pipeline():
 - Load-bearing: `bin_reporting`, `worker_dashboard`, `notification_system`,
   `analytics_dashboard`. Optional: `waste_recognition`, `route_optimizer`.
 - The report is persisted **before** any peer call.
+
+### Tradability, verified not asserted
+
+The chatbot consumes six capabilities — more than any other module — so it is
+the hardest one to claim is independently sellable. Tested by doing it:
+`chatbot.py` copied alone into an empty directory outside the repo, nothing
+else present, nothing configured.
+
+| Check | Result |
+|---|---|
+| Boots from one file | `{"ok": true, "module": "chatbot"}` |
+| Serves `/health`, `/intents`, `/chat`, `/conversations` | 10-intent map returned |
+| Auth enforced | `401` with no key |
+| `help` intent | answered in full |
+| Six unconfigured dependencies | each names its capability and env var |
+| Cross-module imports | 0 (AST-checked) |
+| `required_dependencies` | `[]` |
+
+A buyer gets a working conversational service on day one and connects it to
+whatever they already run. Every dependency is a capability behind an
+environment variable, so wiring it to a different stack is configuration.
+
+**The transfer artefacts.** The module previously had none — no licence meant
+it was, strictly, not transferable at all. It now ships `LICENSE` (chain of
+title back to `AniketCodes76/suvida_chatbot @ e207819`, what is and is not
+included, and the fail-open auth defect disclosed and marked remedied) and
+`module.json` (provides/consumes, all seven dependencies optional).
+
+> The other six Python modules still lack `LICENSE` and `module.json`. The
+> Node reference tree has both and a compliance checker that enforces them;
+> the Python tree does not yet. Same fix, six times over — not done here
+> because only the chatbot was in scope.
+
+### Starter code — a tradable chatbot module
+
+Runnable as written: `pip install fastapi uvicorn httpx`, then
+`uvicorn chatbot_min:app --port 8007`. Verified twice — standalone with no
+dependencies configured, and pointed at a live `analytics_dashboard`, where it
+returned the real 64/43/21.
+
+```python
+"""Minimal tradable chatbot module — the whole pattern in 60 lines.
+
+    pip install fastapi uvicorn httpx
+    uvicorn chatbot_min:app --port 8007
+    curl -X POST localhost:8007/chat -H "X-API-Key: dev-suvida-key" \
+         -H 'Content-Type: application/json' -d '{"message":"show me stats"}'
+"""
+import os
+from typing import Any, Optional
+
+import httpx
+from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException
+from pydantic import BaseModel
+
+API_KEY = os.getenv("CHAT_API_KEY", "dev-suvida-key")          # never None: fails closed
+ANALYTICS_URL = os.getenv("ANALYTICS_URL", "")                 # capability, not a module
+TIMEOUT_S = float(os.getenv("DEPENDENCY_TIMEOUT_MS", "2500")) / 1000
+
+router = APIRouter()                                           # the unit of composition
+
+
+def require_api_key(x_api_key: Optional[str] = Header(None)):
+    if not x_api_key:                                          # reject BEFORE comparing
+        raise HTTPException(401, "X-API-Key header is required.")
+    if x_api_key != API_KEY:
+        raise HTTPException(403, "Invalid API key")
+
+
+async def call(method: str, url: str, **kw) -> dict:
+    """Env-resolved, timeout-bounded, never raises."""
+    try:
+        async with httpx.AsyncClient(timeout=TIMEOUT_S) as c:
+            r = await c.request(method, url, **kw)
+            if r.status_code >= 400:
+                return {"ok": False, "reason": f"upstream_{r.status_code}"}
+            return {"ok": True, "data": r.json()}
+    except Exception:
+        return {"ok": False, "reason": "unreachable"}
+
+
+class ChatRequest(BaseModel):
+    message: str
+
+
+class ChatResponse(BaseModel):
+    reply: str
+    intent: str
+    endpoint: Optional[str] = None
+    data: dict[str, Any] = {}
+    degraded: Optional[dict[str, str]] = None
+
+
+@router.post("/chat", response_model=ChatResponse)
+async def chat(body: ChatRequest, _=Depends(require_api_key)):
+    if not any(k in body.message.lower() for k in ("stat", "analytic", "how many")):
+        return ChatResponse(reply="I can show you collection statistics.", intent="help")
+
+    if not ANALYTICS_URL:                                      # unconfigured != outage
+        return ChatResponse(reply="Not connected to analytics — set ANALYTICS_URL.",
+                            intent="analytics", degraded={"analytics": "not_configured"})
+
+    got = await call("GET", f"{ANALYTICS_URL}/analytics")
+    if not got["ok"]:
+        return ChatResponse(reply="Analytics is not answering just now.", intent="analytics",
+                            endpoint="GET /analytics", degraded={"analytics": got["reason"]})
+
+    k = got["data"]["kpis"]                                    # facts from the module
+    return ChatResponse(
+        reply=f"{k['reported']} bins reported, {k['collected']} collected, "
+              f"{k['outstanding']} outstanding.",
+        intent="analytics", endpoint="GET /analytics", data={"kpis": k})
+
+
+app = FastAPI(title="chatbot")                                 # the unit of sale
+app.include_router(router)
+```
+
+Five properties make it tradable, and each is one line above:
+
+| | |
+|---|---|
+| `router` **and** `app` | composes into another app, or ships as a service |
+| `API_KEY` has a default | never `None`, so the comparison cannot fail open |
+| header checked *before* compare | a missing header is rejected on its own terms |
+| dependency is a URL from env | repoint at a buyer's host without touching code |
+| `not_configured` ≠ outage | a new owner is told which variable to set |
+
+### The chatbot's role — in short
+
+The chatbot is the network's human front door. Six services expose forty-odd
+endpoints with three different auth schemes between them; a resident should not
+have to know any of that to say a bin is overflowing. One sentence in, one API
+call out, one plain answer back — and the same envelope carries structured JSON
+so a dashboard can render a card instead of a paragraph.
+
+It is the only component that talks to all six, which makes it the natural
+place to reconcile them: when `bin_reporting` still says "assigned" and
+`worker_dashboard` says "completed", it trusts the crew and reports the bin as
+cleared. It is also the network's most degradable part by design — the language
+model classifies and rephrases, never decides or invents, so with no model
+installed the assistant still answers every question from templates and live
+module data.
 
 ---
 
@@ -484,10 +1074,44 @@ async def collection_pipeline():
 ### HACQUIRE compliance
 
 > **Rule: at least one purchase is mandatory.**
-> **Status: SATISFIED — two purchases**, `notification_system` and
-> `worker_dashboard`. Both are integrated and load-bearing in the live
-> pipeline, not shelf-ware: dispatch, routing and every notification flow
-> through them.
+> **Status: SATISFIED — three purchases**, `notification_system`,
+> `worker_dashboard` and `chatbot`. All three are integrated and
+> load-bearing, not shelf-ware: dispatch, routing and every notification flow
+> through the first two, and the third is the product's entire conversational
+> surface.
+
+**`chatbot`** (Suvida Chatbot, `AniketCodes76/suvida_chatbot` @
+`e207819`) — acquired as a *public-transport* assistant. Word counts against
+the source say it plainly: bus 2, train 2, metro 1, tram 1, waste 0, bin 0,
+recycling 0, collection 0.
+
+What we valued was the **shell and the contract**, not the content:
+
+| | |
+|---|---|
+| **Kept** | `POST /chat`, `X-API-Key`, `{message, history}` → `{reply}` — existing clients keep working |
+| **Replaced** | the TravelBuddy persona; there was no waste content to adapt, so it was rewritten |
+| **Preserved** | that persona verbatim in `mocks/vendor_prompt_transport.txt` — it is the resaleable half of the asset and deleting it would destroy that value |
+| **Added** | intent routing to five modules; the shipped bot was connected to nothing and said so itself |
+| **Fixed** | a fail-open auth hole (below) |
+
+**Diligence found a live vulnerability.** The shipped auth was
+`if x_api_key != API_KEY: raise 401`, with `API_KEY = os.getenv("API_KEY")`
+and no fallback. `.env` is gitignored, so a fresh clone has no key: the
+constant is `None`, a request with **no header** is also `None`, and
+`None != None` is `False`. The endpoint authenticated unauthenticated callers.
+Reproduced against the acquired source before rewriting; now fails closed —
+a missing header is rejected on its own terms and the key always has a value.
+An acquisition is only as safe as the diligence done on it, and this one
+shipped an open door.
+
+**The LLM is optional, deliberately.** The vendor hard-wired a call to a local
+Ollama model with no timeout, from a sync route. Here the model only rephrases
+an answer already computed from module data, on a separate bounded budget; with
+`OLLAMA_URL` unset — the default — every reply comes from a template and
+`source` says so. The feature therefore works on a judge's laptop, in CI, and
+offline. A conversational feature that requires a 2 GB model download to demo
+is not a feature.
 
 ### The structural catch — and the fix
 
@@ -539,9 +1163,13 @@ production hardening; counterparty negotiation.
 2. **Three channels do not deliver.** `sms`/`email`/`push` accept and queue but
    send nothing. Disclosed in the licence, README and `.env.example` — it must
    not be discovered after signing.
-3. **Concentration.** Divesting three of six leaves two purchased modules under
-   proprietary licence. A lost licence-back would require replacing three
+3. **Concentration.** Divesting three of seven leaves three purchased modules
+   under proprietary licence. A lost licence-back would require replacing three
    capabilities at once — mechanical, thanks to the indirection, but real.
+4. **`chatbot` price not yet recorded.** The other six carry settled
+   figures; this acquisition closed after the ledger was drawn up. The
+   consideration needs entering before the ledger is final — it is left blank
+   here rather than estimated.
 
 ---
 
@@ -560,9 +1188,10 @@ production hardening; counterparty negotiation.
 - **Divested:** `waste_recognition` $42k · `analytics_dashboard` $35k ·
   `route_optimizer` $28k → **$105,000**.
 - **Retained:** `worker_dashboard` (escrowed source, vertical-agnostic) ·
-  `notification_system` (support window closes 2027-03-14).
+  `notification_system` (support window closes 2027-03-14) · `chatbot`
+  (re-personed from public transport; diligence caught a fail-open auth hole).
 - **Consulting slot:** 30 min, verification and risk sign-off.
-- **HACQUIRE compliance:** two purchases — mandatory minimum exceeded.
+- **HACQUIRE compliance:** three purchases — mandatory minimum exceeded.
 - **The catch:** both retained modules consume all three sold. Licence-back
   keeps the product alive; repointing is an env var, not a code change.
 
@@ -574,7 +1203,7 @@ production hardening; counterparty negotiation.
 - **Resilience:** stop `route_optimizer` and step 4 returns `UNORDERED` with a
   reason, step 5 drops its "stop N of M" phrasing, the run still completes.
   Degradation is designed, not accidental.
-- **Run it yourself:** `python hacquire/scripts/run_mesh.py`
+- **Run it yourself:** `uvicorn main:app` (one process) or `python hacquire/run_network.py` (six)
 
 ---
 

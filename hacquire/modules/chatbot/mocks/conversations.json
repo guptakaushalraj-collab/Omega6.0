@@ -1,0 +1,18 @@
+[
+  { "id": "cnv_4d1f9a7c22b8", "message": "there is an overflowing bin at 12.972,77.595",
+    "intent": "report_bin", "source": "template", "degraded": null,
+    "at": "2026-08-21T09:14:02Z" },
+  { "id": "cnv_8b3e0c5177da", "message": "what is happening with bin_90b813b2c556",
+    "intent": "pickup_status", "source": "template", "degraded": null,
+    "at": "2026-08-21T09:41:19Z" },
+  { "id": "cnv_1c77af90e355", "message": "how are we doing this week",
+    "intent": "analytics", "source": "llm", "degraded": null,
+    "at": "2026-08-21T10:02:44Z" },
+  { "id": "cnv_2fa5b16d0e93", "message": "what is on Asha's round",
+    "intent": "route", "source": "template",
+    "degraded": { "route_optimizer": "unreachable" },
+    "at": "2026-08-21T10:15:08Z" },
+  { "id": "cnv_9e04c8b3771a", "message": "who is assigned to bin_90b813b2c556",
+    "intent": "worker", "source": "template", "degraded": null,
+    "at": "2026-08-21T10:31:52Z" }
+]

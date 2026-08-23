@@ -1,0 +1,43 @@
+# Intelligent Waste Collection Network — HACQUIRE 2026
+
+fastapi
+uvicorn
+python-dotenv
+
+# --- not optional -----------------------------------------------------------
+# `pip install fastapi` pulls pydantic, starlette and typing-extensions, and
+# nothing else. httpx and python-multipart arrive only with the [standard]
+# extra, so both are declared here. Verified by blocking each import in turn:
+#
+#   without httpx             bin_reporting and worker_dashboard fail to
+#                             import — they call their peers over HTTP
+#   without python-multipart  bin_reporting and waste_recognition raise at
+#                             route-definition time: "Form data requires
+#                             'python-multipart' to be installed"
+httpx
+python-multipart
+
+# Comes with fastapi, but the code imports it directly and uses v2-only syntax
+# (model_config, field_validator), so the floor is declared rather than
+# inherited.
+pydantic>=2
+
+# --- per module -------------------------------------------------------------
+# A buyer lifting one file needs only its own subset; each module's docstring
+# header names it.
+#
+#   bin_reporting        fastapi uvicorn pydantic httpx python-multipart
+#   waste_recognition    fastapi uvicorn pydantic python-multipart
+#   route_optimizer      fastapi uvicorn pydantic
+#   analytics_dashboard  fastapi uvicorn pydantic
+#   notification_system  fastapi uvicorn pydantic
+#   worker_dashboard     fastapi uvicorn pydantic httpx
+#   chatbot              fastapi uvicorn pydantic httpx
+#
+# chatbot adds NO new dependency. The acquired module used `requests`
+# for its LLM call; that call is now httpx, which the network already needs —
+# one fewer package, and the call becomes async and timeout-bounded.
+#
+# python-dotenv is used only by the entrypoints (main.py, run_network.py),
+# never by a module — a module reads os.environ and does not care who filled
+# it, which is what lets it drop into a buyer's stack unchanged.
