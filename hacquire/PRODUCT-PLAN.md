@@ -475,9 +475,34 @@ curl -X POST localhost:8005/notifyPickup -H "X-API-Key: dev-signalpost-key" \
   "message": "Good news — the bin you reported has been picked up. …" }
 ```
 
-**Auth is enforced on the alias** — verified `401` without a key, `403` with a
-wrong one. An alias must never become a way around authentication.
-Also: `POST /v1/messages` · `GET /v1/messages` · `POST /v1/messages/{id}/ack` ·
+**Short form — `POST /pickup`.** Same send, `{binId, message}` envelope:
+
+```json
+{
+  "binId": "bin_adede7376e96", "message": "Pickup completed",
+  "sent": true, "messageId": "msg_27195e59510c",
+  "recipient": "citizen", "channel": "in_app", "delivery_status": "delivered",
+  "notification": "Good news — the bin you reported has been picked up. …"
+}
+```
+
+Three separate facts, three keys. `message` states the EVENT — the pickup
+happened. `delivery_status` says whether the alert actually reached anyone.
+`notification` is the text that was sent. They cannot be collapsed: only
+`in_app` delivers in this build, so `channel=sms` legitimately returns
+`"message": "Pickup completed"` alongside `"delivery_status": "queued"` and
+`"sent": false` — verified.
+
+**AUTH IS ENFORCED ON BOTH ALIASES** — `401` without a key, `403` with a wrong
+one, in the vendor's envelope. These routes sit outside `/v1`, so the key
+check is attached explicitly rather than inherited. An unauthenticated
+notification endpoint is a spam vector: anyone who finds the URL can push
+messages to citizens in the city's name. An alias must never become a way
+around authentication, however convenient that would be for a demo.
+
+The vendor surface is untouched and additive-only, so a new owner can delete
+every house alias without breaking a single documented SignalPost endpoint:
+`POST /v1/messages` · `GET /v1/messages` · `POST /v1/messages/{id}/ack` ·
 `POST /v1/messages/ack_all` · `GET /v1/channels`
 
 ### Worker dashboard — `GET /v1/workers/{id}/queue` *(worker_dashboard)*

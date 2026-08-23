@@ -61,7 +61,8 @@ uvicorn main:app --reload           # http://localhost:8000
 | `POST /waste/detect` | `{image_base64}` → `{type}` — the classifier itself |
 | `GET  /route/optimizeRoute?bins=[...]` | ordered route |
 | `GET  /analytics/analytics` | chart-ready data |
-| `POST /notify/notifyPickup` | alert the citizen |
+| `POST /notify/pickup` | alert the citizen — short form |
+| `POST /notify/notifyPickup` | alert the citizen — full form |
 | `GET  /` | the registry and the full path map |
 
 **Six processes** — one service per port, the shape the trading positions

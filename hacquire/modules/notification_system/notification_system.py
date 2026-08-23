@@ -31,7 +31,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, FastAPI, Header, Request, Response
+from fastapi import APIRouter, Depends, FastAPI, Header, Query, Request, Response
 from fastapi.routing import APIRoute
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
@@ -262,41 +262,96 @@ def ack_all(body: dict, _=Depends(require_api_key)):
     return {"acknowledged": n}
 
 
-@router.post("/notifyPickup", status_code=201)
-def notify_pickup(body: PickupIn, _=Depends(require_api_key)):
-    """Flat alias over POST /v1/messages.
+# ------------------------------------------------------- house aliases
+# ADDITIVE ONLY. Everything below sits OUTSIDE /v1 and is ours, not the
+# vendor's. The SignalPost surface underneath is untouched, so the module can
+# still be resold as the product its buyers already integrate against — these
+# routes are a convenience layer a new owner can delete without breaking a
+# single documented endpoint.
+#
+# AUTH APPLIES TO ALL OF THEM. Being outside /v1 means the key check has to be
+# attached explicitly rather than inherited. An unauthenticated notification
+# endpoint is a spam vector — anyone who finds the URL can push messages to
+# citizens in the city's name — so an alias must never become a way around
+# auth, however convenient that would be for a demo.
 
-    Composes a pickup message and defaults the recipient to `citizen` — the
-    person who reported the bin, which is what "alert the user" means here.
 
-    AUTH STILL APPLIES. This route sits outside /v1, so the key check is
-    applied explicitly: an unauthenticated notification endpoint is a spam
-    vector, and an alias must never become a way around auth.
-    """
-    bin_id = body.binId or body.bin_id
+def _send_pickup(bin_id, recipient_type: str, recipient_id, channel: str, message):
+    """Compose and persist a pickup notification. Shared by both aliases."""
     if not bin_id:
         return fail(400, "missing_bin_id", "binId is required.")
-    if body.recipient_type not in RECIPIENTS:
+    if recipient_type not in RECIPIENTS:
         return fail(422, "unsupported_recipient", f"recipient_type must be one of: {', '.join(RECIPIENTS)}.")
-    if body.channel not in CHANNELS:
+    if channel not in CHANNELS:
         return fail(422, "unsupported_channel", f"channel must be one of: {', '.join(CHANNELS)}.")
 
     default = {
         "citizen": "Good news — the bin you reported has been picked up. Thanks for helping keep the city clean!",
         "worker": f"Pickup scheduled for {bin_id}.",
         "admin": f"Pickup completed for {bin_id}.",
-    }[body.recipient_type]
+    }[recipient_type]
 
-    text = (body.message or default).strip()
+    text = (message or default).strip()
     if len(text) > MAX_BODY_CHARS:
         return fail(422, "body_too_long", f"message exceeds {MAX_BODY_CHARS} characters.")
 
-    msg = _persist(body.recipient_type, body.recipient_id, body.channel,
-                   text, str(bin_id), {"trigger": "pickup"})
+    return _persist(recipient_type, recipient_id, channel, text, str(bin_id),
+                    {"trigger": "pickup"})
+
+
+@router.post("/notifyPickup", status_code=201)
+def notify_pickup(body: PickupIn, _=Depends(require_api_key)):
+    """Flat alias over POST /v1/messages.
+
+    Composes a pickup message and defaults the recipient to `citizen` — the
+    person who reported the bin, which is what "alert the user" means here.
+    """
+    msg = _send_pickup(body.binId or body.bin_id, body.recipient_type,
+                       body.recipient_id, body.channel, body.message)
+    if isinstance(msg, JSONResponse):
+        return msg
     return {"sent": msg["delivery_status"] == "delivered", "messageId": msg["id"],
             "binId": msg["subject_ref"], "recipient": msg["recipient_type"],
             "channel": msg["channel"], "delivery_status": msg["delivery_status"],
             "message": msg["body"]}
+
+
+@router.post("/pickup", status_code=201)
+def pickup(
+    body: Optional[PickupIn] = None,
+    binId: Optional[str] = Query(None, description="Bin id, e.g. bin_90b813b2c556"),
+    _=Depends(require_api_key),
+):
+    """Notify the citizen that a bin has been cleared.
+
+    Short form of /notifyPickup. Accepts binId as a JSON body or a query
+    parameter, and returns the {binId, message} envelope.
+
+    `message` states the EVENT — the pickup happened. Whether the alert
+    reached anyone is `delivery_status`, and the text actually sent is
+    `notification`. Three different facts, three keys: only `in_app` delivers
+    in this build, so a message can legitimately be recorded as "queued" for a
+    pickup that definitely completed, and one field cannot honestly carry both.
+    """
+    msg = _send_pickup(
+        (body.binId or body.bin_id) if body else binId,
+        body.recipient_type if body else "citizen",
+        body.recipient_id if body else None,
+        body.channel if body else "in_app",
+        body.message if body else None,
+    )
+    if isinstance(msg, JSONResponse):
+        return msg
+    return {
+        "binId": msg["subject_ref"],
+        "message": "Pickup completed",
+        "sent": msg["delivery_status"] == "delivered",
+        "messageId": msg["id"],
+        "recipient": msg["recipient_type"],
+        "channel": msg["channel"],
+        "delivery_status": msg["delivery_status"],
+        "notification": msg["body"],
+    }
 
 
 # --------------------------------------------------------------- packaging
