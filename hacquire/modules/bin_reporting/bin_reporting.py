@@ -30,7 +30,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 import httpx
-from fastapi import APIRouter, FastAPI, File, Form, HTTPException, Query, UploadFile
+from fastapi import (APIRouter, FastAPI, File, Form, HTTPException, Query,
+                     Request, UploadFile)
 from pydantic import BaseModel, Field
 
 APP_VERSION = "1.0.0"
@@ -545,6 +546,35 @@ async def detect(
         (body.binId or body.bin_id) if body else binId,
         (body.force if body else False) or force,
     )
+
+
+@router.get("/", include_in_schema=False)
+def index(request: Request):
+    """Root index.
+
+    Exists because a bare `GET /` otherwise returns {"detail": "Not Found"} —
+    the first thing anyone does with a new service is open its root in a
+    browser, and a bare 404 tells them nothing about whether the thing is even
+    running.
+
+    Route list is derived from `router.routes`, not hand-written, so it cannot
+    drift as routes are added. `mounted_at` comes from the request path, so the
+    links are correct whether this runs standalone on its own port or behind a
+    prefix inside the composed app.
+    """
+    base = request.url.path.rstrip("/")
+    paths = sorted({r.path for r in router.routes
+                     if getattr(r, "path", None) and r.path != "/"})
+    return {
+        "module": "bin_reporting",
+        "version": APP_VERSION,
+        "position": "HELD — citizen intake and orchestration",
+        "status": "running",
+        "docs": "/docs",
+        "openapi": "/openapi.json",
+        "mounted_at": base or "/",
+        "routes": [base + p for p in paths],
+    }
 
 
 # --------------------------------------------------------------- packaging

@@ -16,7 +16,7 @@ import math
 import os
 from typing import Any, Optional
 
-from fastapi import APIRouter, FastAPI, HTTPException, Query
+from fastapi import APIRouter, FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, Field, field_validator
 
 APP_VERSION = "1.0.0"
@@ -278,6 +278,35 @@ def optimize_route_alias(
         raise HTTPException(413, f"bins exceeds the {MAX_STOPS}-stop limit")
 
     return _sequence(parsed, start, refine)
+
+
+@router.get("/", include_in_schema=False)
+def index(request: Request):
+    """Root index.
+
+    Exists because a bare `GET /` otherwise returns {"detail": "Not Found"} —
+    the first thing anyone does with a new service is open its root in a
+    browser, and a bare 404 tells them nothing about whether the thing is even
+    running.
+
+    Route list is derived from `router.routes`, not hand-written, so it cannot
+    drift as routes are added. `mounted_at` comes from the request path, so the
+    links are correct whether this runs standalone on its own port or behind a
+    prefix inside the composed app.
+    """
+    base = request.url.path.rstrip("/")
+    paths = sorted({r.path for r in router.routes
+                     if getattr(r, "path", None) and r.path != "/"})
+    return {
+        "module": "route_optimizer",
+        "version": APP_VERSION,
+        "position": "SOLD $28,000 — stop sequencing",
+        "status": "running",
+        "docs": "/docs",
+        "openapi": "/openapi.json",
+        "mounted_at": base or "/",
+        "routes": [base + p for p in paths],
+    }
 
 
 # --------------------------------------------------------------- packaging
