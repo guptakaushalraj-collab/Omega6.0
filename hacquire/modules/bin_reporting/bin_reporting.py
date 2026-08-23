@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 import httpx
-from fastapi import APIRouter, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, FastAPI, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 
 APP_VERSION = "1.0.0"
@@ -220,6 +220,23 @@ def _store_image(raw: bytes, ext: str = ".jpg") -> str:
     return name
 
 
+def _decode_and_store(raw: str) -> str:
+    """base64 (raw or data: URL) -> a stored photo filename.
+
+    Shared by every alias that takes an inline image, so the decode rules and
+    error messages cannot drift between them.
+    """
+    if raw.lstrip().startswith("data:") and "," in raw[:64]:
+        raw = raw.split(",", 1)[1]
+    try:
+        decoded = base64.b64decode(raw, validate=False)
+    except Exception as exc:
+        raise HTTPException(400, f"image: not valid base64 ({exc})")
+    if not decoded:
+        raise HTTPException(400, "image: decoded to zero bytes")
+    return _store_image(decoded, ".png")
+
+
 async def create_report(location: dict, *, address=None, notes=None,
                         reporter_name="Anonymous", photo_filename: Optional[str] = None,
                         auto_assign: bool = True) -> dict:
@@ -384,6 +401,63 @@ async def patch_status(bin_id: str, body: StatusPatch):
 
 # --------------------------------------------------------- flat alias API
 
+@router.post("/report", status_code=201)
+async def report(
+    body: Optional[ReportBinIn] = None,
+    image: Optional[str] = Query(None, description="base64 image (prefer the JSON body)"),
+    location: Optional[str] = Query(None, description='"lat,lng" — e.g. "12.972,77.595"'),
+):
+    """Report a full bin with photo + location.
+
+    Short alias over the same intake pipeline as /reportBin, returning the
+    {status, binId, location} envelope. Accepts the fields either as a JSON
+    body or as query parameters; the body wins when both are present.
+
+    QUERY PARAMETERS ARE THE FALLBACK, NOT THE HAPPY PATH. A base64 photo in a
+    query string is a real problem in production — servers and proxies cap the
+    request line (commonly 4-8 KB, well under one photo), and full URLs land in
+    access logs, browser history and Referer headers, so the image is copied
+    somewhere nobody is managing. They are supported because a bare
+    `image: str` argument makes FastAPI read a query parameter, and callers
+    written against that signature should not break. Send a JSON body.
+    """
+    raw_image = body.image if body and body.image is not None else image
+    raw_location = body.location if body and body.location is not None else location
+
+    parsed = None
+    if raw_location:
+        parsed = parse_location(raw_location)
+        if parsed is None:
+            raise HTTPException(400, 'location must be "lat,lng" — e.g. "12.972,77.595"')
+    elif body and body.lat is not None and body.lng is not None:
+        parsed = {"lat": body.lat, "lng": body.lng}
+    if parsed is None:
+        raise HTTPException(400, 'location is required, as "lat,lng" or lat/lng fields')
+
+    out = await create_report(
+        parsed,
+        address=body.address if body else None,
+        notes=body.notes if body else None,
+        reporter_name=body.reporter_name if body else "Anonymous",
+        photo_filename=_decode_and_store(raw_image) if raw_image else None,
+        auto_assign=body.auto_assign if body else True,
+    )
+    r = out["report"]
+    # `status` is the CALL outcome, as the caller's contract expects. The bin's
+    # own lifecycle state is a different thing and gets its own key rather than
+    # overloading this one — a report can be accepted (success) while dispatch
+    # degrades, and collapsing the two would hide that.
+    return {
+        "status": "success",
+        "binId": r["id"],
+        "location": f"{r['location']['lat']},{r['location']['lng']}",
+        "binStatus": r["status"],
+        "type": r["waste_type"],
+        "assignedWorker": (r.get("assignment") or {}).get("worker_name"),
+        "degraded": out["degraded"],
+    }
+
+
 @router.post("/reportBin", status_code=201)
 async def report_bin(body: ReportBinIn):
     """Flat alias: {image, location: "lat,lng"} -> {binId, type, ...}"""
@@ -397,18 +471,7 @@ async def report_bin(body: ReportBinIn):
     if location is None:
         raise HTTPException(400, 'location is required, as "lat,lng" or lat/lng fields')
 
-    photo_name = None
-    if body.image:
-        raw = body.image
-        if raw.lstrip().startswith("data:") and "," in raw[:64]:
-            raw = raw.split(",", 1)[1]
-        try:
-            decoded = base64.b64decode(raw, validate=False)
-        except Exception as exc:
-            raise HTTPException(400, f"image: not valid base64 ({exc})")
-        if not decoded:
-            raise HTTPException(400, "image: decoded to zero bytes")
-        photo_name = _store_image(decoded, ".png")
+    photo_name = _decode_and_store(body.image) if body.image else None
 
     out = await create_report(location, address=body.address, notes=body.notes,
                               reporter_name=body.reporter_name,

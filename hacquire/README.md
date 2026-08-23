@@ -54,7 +54,8 @@ uvicorn main:app --reload           # http://localhost:8000
 
 | | |
 |---|---|
-| `POST /bin/reportBin` | report a bin |
+| `POST /bin/report` | report a bin — short form, `{status, binId, location}` |
+| `POST /bin/reportBin` | report a bin — full form, returns the whole record |
 | `POST /bin/detectWasteType` | `{binId}` → `{type}` |
 | `GET  /route/optimizeRoute?bins=[...]` | ordered route |
 | `GET  /analytics/analytics` | chart-ready data |

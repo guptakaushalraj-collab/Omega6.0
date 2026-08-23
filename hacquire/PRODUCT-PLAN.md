@@ -333,6 +333,30 @@ Canonical equivalents: `POST /api/v1/reports` (JSON) ·
 `GET /api/v1/reports/{id}` · `PATCH /api/v1/reports/{id}/status` ·
 `POST /api/v1/reports/{id}/reclassify`
 
+**Short form — `POST /report`.** Same pipeline, smaller envelope, for callers
+that only need to know the submission landed. Accepts the fields as a JSON
+body or as query parameters; the body wins when both are given.
+
+**Live response** `201`:
+
+```json
+{
+  "status": "success",
+  "binId": "bin_81ac6f7caaa8",
+  "location": "12.972,77.595",
+  "binStatus": "assigned",
+  "type": "plastic",
+  "assignedWorker": "Asha Kumar",
+  "degraded": null
+}
+```
+
+`status` is the outcome of the CALL; `binStatus` is the bin's lifecycle state.
+They are separate keys on purpose — a report can be accepted while dispatch
+degrades, and collapsing them would hide exactly that. Prefer the JSON body:
+a base64 photo in a query string exceeds common request-line limits and gets
+copied into access logs, history and `Referer` headers.
+
 ### Detecting waste type — `POST /detectWasteType` *(bin_reporting)*
 
 ```json
