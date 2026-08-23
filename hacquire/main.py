@@ -22,6 +22,13 @@ envelopes underneath their prefix, so /notify/v1/... and /worker/v1/... behave
 exactly as their vendors documented.
 """
 import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# override=False: an exported value or a platform-injected one always wins
+# over a checked-in default. Loaded before anything reads os.environ.
+load_dotenv(Path(__file__).resolve().parent / ".env", override=False)
 
 # ---------------------------------------------------------------------------
 # SELF-WIRING — must run BEFORE the module imports below.

@@ -44,7 +44,14 @@ empty directory outside the repo answered `GET /optimizeRoute` correctly.
 
 ```bash
 pip install -r requirements.txt
+cp .env.example .env      # optional — every value has a working default
 ```
+
+`.env` is read by both entrypoints via `python-dotenv`, and only fills gaps:
+a value already exported in the shell, or injected by a container platform,
+always wins over the file. Modules themselves never load it — they read
+`os.environ` and do not care who filled it, which is what lets one drop into
+a buyer's stack unchanged.
 
 **Single process** — everything behind one port, one `/docs`:
 

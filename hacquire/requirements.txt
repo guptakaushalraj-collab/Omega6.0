@@ -1,8 +1,30 @@
 # Intelligent Waste Collection Network — HACQUIRE 2026
+
+fastapi
+uvicorn
+python-dotenv
+
+# --- not optional -----------------------------------------------------------
+# `pip install fastapi` pulls pydantic, starlette and typing-extensions, and
+# nothing else. httpx and python-multipart arrive only with the [standard]
+# extra, so both are declared here. Verified by blocking each import in turn:
 #
-# One file for the whole network. Each module also names the subset it needs
-# in its own docstring header, so a buyer lifting a single file knows exactly
-# what to install:
+#   without httpx             bin_reporting and worker_dashboard fail to
+#                             import — they call their peers over HTTP
+#   without python-multipart  bin_reporting and waste_recognition raise at
+#                             route-definition time: "Form data requires
+#                             'python-multipart' to be installed"
+httpx
+python-multipart
+
+# Comes with fastapi, but the code imports it directly and uses v2-only syntax
+# (model_config, field_validator), so the floor is declared rather than
+# inherited.
+pydantic>=2
+
+# --- per module -------------------------------------------------------------
+# A buyer lifting one file needs only its own subset; each module's docstring
+# header names it.
 #
 #   bin_reporting        fastapi uvicorn pydantic httpx python-multipart
 #   waste_recognition    fastapi uvicorn pydantic python-multipart
@@ -10,14 +32,7 @@
 #   analytics_dashboard  fastapi uvicorn pydantic
 #   notification_system  fastapi uvicorn pydantic
 #   worker_dashboard     fastapi uvicorn pydantic httpx
-
-fastapi>=0.115
-uvicorn[standard]>=0.30
-pydantic>=2.7
-
-# Outbound HTTP between modules. Only bin_reporting and worker_dashboard call
-# out; the other four are leaves.
-httpx>=0.27
-
-# Multipart form parsing for photo uploads (bin_reporting, waste_recognition).
-python-multipart>=0.0.9
+#
+# python-dotenv is used only by the entrypoints (main.py, run_network.py),
+# never by a module — a module reads os.environ and does not care who filled
+# it, which is what lets it drop into a buyer's stack unchanged.

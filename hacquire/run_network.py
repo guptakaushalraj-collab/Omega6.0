@@ -37,29 +37,16 @@ import sys
 import time
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 ROOT = Path(__file__).resolve().parent
 MODULES_DIR = ROOT / "modules"
 
 
-def load_dotenv(path: Path) -> None:
-    """Minimal KEY=VALUE loader — avoids a dependency for ten lines of work.
-
-    Existing environment variables WIN over the file, so a value exported in
-    the shell (or injected by a container platform) is never silently
-    overwritten by a checked-in default.
-    """
-    if not path.exists():
-        return
-    for line in path.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        key, value = key.strip(), value.strip().strip('"').strip("'")
-        os.environ.setdefault(key, value)
-
-
-load_dotenv(ROOT / ".env")
+# override=False: a value already exported in the shell, or injected by a
+# container platform, always wins over a checked-in default. The .env file
+# fills gaps; it never overwrites the environment.
+load_dotenv(ROOT / ".env", override=False)
 
 
 def env(key: str, default: str) -> str:

@@ -248,9 +248,18 @@ MAX_MESSAGES=10000              # notification_system
 # SIGNALPOST_GATEWAY_KEY=       ← not read by this build
 ```
 
-`main.py` reads this file only for keys **not already in the environment**, so
-an exported value or a container platform's injection always wins over a
-checked-in default.
+Both entrypoints read this file through `python-dotenv`, with
+`override=False`: it fills gaps only, so an exported value or a container
+platform's injection always wins over a checked-in default. The modules never
+load it themselves — they read `os.environ` and do not care who filled it,
+which is exactly what lets one drop into a buyer's stack unchanged.
+
+**Dependencies.** `pip install fastapi` pulls pydantic, starlette and
+typing-extensions and nothing else; `httpx` and `python-multipart` arrive only
+with the `[standard]` extra, so both are declared explicitly. Verified by
+blocking each import in turn: without `httpx`, `bin_reporting` and
+`worker_dashboard` fail to import; without `python-multipart`, `bin_reporting`
+and `waste_recognition` raise at route-definition time.
 
 ### Mock datasets
 
