@@ -613,7 +613,8 @@ other keys are additive, so a client written against the acquired API still
 works: `intent` and `data` let a UI render a card instead of a wall of text,
 `source` says whether a model was involved, `degraded` names what was skipped.
 
-**Nine intents, routed deterministically** — 21/21 on the routing test set.
+**Nine intents.** Resolution is two-stage: the acquired NLP engine parses,
+keyword routing is the floor beneath it (21/21 on its own routing set).
 The assistant reaches **every other module**; nothing else in the network does:
 
 | Intent | Calls | Example |
@@ -629,7 +630,23 @@ The assistant reaches **every other module**; nothing else in the network does:
 | `worker` | `/worker` workers / assignments | "who is assigned to bin_f4f6…" |
 | `help` · `offtopic` | answered locally | — |
 
-Each was verified server-side rather than from the reply text: the bin record
+**The model proposes; the module disposes.** The LLM's answer is validated
+against the known intent set — asked for `delete_everything`, the parse is
+rejected and keywords take over, with the reason in `degraded.intent_parser`.
+And it *classifies only*: ids and coordinates are always regex-extracted,
+because a model that gets one hex digit wrong in `bin_eb6f4a5ad6c7` produces a
+confident lookup of the wrong bin that nothing downstream can catch. Exercised
+against a stub speaking Ollama's API: paraphrase with no keyword overlap parsed
+correctly, fenced JSON recovered, garbage and hallucinated intents rejected,
+and the model going away mid-conversation degraded to keywords.
+
+**"Check pickup" is a READ.** It maps to `bin_reporting` + `worker_dashboard`,
+never to `POST /notify/pickup` — that endpoint messages the citizen, and
+wiring a status question to it would text a resident every time someone asked
+whether their bin had been emptied. Verified: three status questions, zero
+notifications sent.
+
+Each mapping was verified server-side rather than from the reply text: the bin record
 and stored photo in `bin_reporting`, a logged classification in
 `waste_recognition`, the 2-opt saving in the optimizer response, the event
 counts in `analytics_dashboard`, the messages in `notification_system`, and

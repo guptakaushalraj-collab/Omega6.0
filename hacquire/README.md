@@ -171,13 +171,51 @@ It reaches **every other module** — the only component that does:
 | "what is on Asha's round" | `/worker` queue → `/route` |
 | anything else | declines, and says what it does cover |
 
-Nine intents, routed deterministically — **21/21** on the routing test set.
+Nine intents. `GET /intents` returns the whole map as data. The keyword
+fallback scores **21/21** on its routing set.
 
-**No LLM required.** Intent routing and every answer are deterministic; a
-local model only rephrases, and only if `OLLAMA_URL` is set. With it unset —
-the default, and the normal case on a judge's laptop — replies come from
-templates and `source` reports `"template"`. Facts always come from the
-modules; the model is never allowed to be the source of one.
+Every reply carries **both halves**: `reply` is the sentence, `data` is the
+structured payload from whichever module answered, and `endpoint` names the
+call that was made. The response is a typed `ChatResponse`, so the shape is
+enforced at runtime and documented in OpenAPI rather than showing up as a bare
+`object`.
+
+**"Check pickup" is a read, not a send.** It maps to `bin_reporting` +
+`worker_dashboard`, *never* to `POST /notify/pickup` — that endpoint messages
+the citizen. Wiring a status question to it would text a resident every time
+someone asked whether their bin had been emptied. Sending is its own intent,
+reached only when the user actually asks for someone to be told. Verified:
+three status questions in a row sent zero notifications.
+
+### How a message is resolved
+
+```
+message ──▶ PARSE ──▶ ACT ──▶ RETURN
+            │          │        │
+            │          │        └─ {reply: text, intent, endpoint, data: json, …}
+            │          └─ the one API this intent maps to (GET /intents lists them all)
+            └─ acquired NLP engine, validated  ▸ keyword routing beneath it
+```
+
+**The model proposes; the module disposes.** The acquired NLP engine
+classifies the message, and two rules make that safe in front of a live
+system:
+
+1. Its answer is **validated** against the known intent set. Asked to return
+   `delete_everything`, the parse is rejected, keyword routing takes over, and
+   `degraded.intent_parser` records why — verified.
+2. It **classifies only**. Bin ids, worker ids and coordinates are always
+   extracted by regex. A model that transcribes `bin_eb6f4a5ad6c7` with one
+   hex digit wrong produces a confident lookup of the *wrong bin* and nothing
+   downstream can tell; a regex either matches the real id or doesn't match.
+
+**No LLM required.** With `OLLAMA_URL` unset — the default, and the normal case
+on a judge's laptop — parsing falls to the keyword router, replies come from
+templates, and `parser`/`source` say so. Set it and the model earns its keep on
+paraphrase: *"my street is a tip and nobody has been round in a fortnight"* is
+`report_bin` via the LLM, where keywords match "round" and answer `route` —
+wrong, not merely vague. Either way the facts come from the modules; the model
+is never the source of one.
 
 **It tells the truth when things are down.** With `analytics_dashboard`
 killed: *"The analytics service is not answering, so I have no figures to give

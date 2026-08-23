@@ -353,6 +353,28 @@ SCOPE_HINT = ("bins", "pickups", "collection routes", "crew assignments",
               "and the collection numbers")
 
 
+# THE MAP. One place that says which API each intent reaches, so the routing
+# table is a fact in the code rather than a claim in a README. Surfaced on
+# GET /intents and echoed on every reply as `endpoint`.
+#
+# NOTE ON "check pickup". A status question is a READ — it goes to
+# bin_reporting and worker_dashboard. It must NOT go to /notify/pickup, which
+# SENDS an alert: mapping it there would message a resident every time someone
+# asked whether their bin had been collected. Sending is its own intent
+# (`notify`), reached only when the user actually asks for someone to be told.
+INTENT_ENDPOINTS = {
+    "report_bin":    "POST /bin/report",
+    "identify":      "POST /waste/detect",
+    "route":         "POST /route/optimize · GET /worker/v1/workers/{id}/queue",
+    "analytics":     "GET /analytics",
+    "notify":        "POST /notify/pickup",
+    "assign_worker": "POST /worker/assign",
+    "pickup_status": "GET /bin/api/v1/reports/{id} · GET /worker/v1/assignments",
+    "worker":        "GET /worker/v1/workers · GET /worker/v1/assignments",
+    "help":          None,
+    "offtopic":      None,
+}
+
 # Actions before lookups; `help` last so a greeting never outranks a real ask.
 INTENT_PRIORITY = ("report_bin", "assign_worker", "notify", "identify",
                    "pickup_status", "analytics", "route", "worker", "help")
@@ -426,14 +448,109 @@ def _plural(n: int, word: str) -> str:
     return word if n == 1 else word + "s"
 
 
-async def handle(message: str, image: Optional[str] = None) -> dict:
+PARSER_PROMPT = """You classify messages sent to a city waste-collection assistant.
+
+Reply with ONE line of JSON and nothing else:
+{{"intent": "<name>"}}
+
+Valid intents, and what each means:
+  report_bin     the user is telling us about a bin that needs emptying
+  pickup_status  the user is ASKING whether a bin has been dealt with
+  analytics      the user wants figures, totals, rates or performance
+  route          the user wants a round, a sequence of stops, or a plan
+  worker         the user is asking who someone is or who has a job
+  assign_worker  the user wants a named person PUT ON a job
+  notify         the user wants someone TOLD or ALERTED about a bin
+  identify       the user wants to know what kind of waste something is
+  help           a greeting, or asking what you can do
+  offtopic       anything unrelated to waste collection
+
+Two distinctions that matter:
+  "has bin_x been collected"  -> pickup_status   (a question)
+  "tell the resident bin_x is done" -> notify    (a request to send)
+  "who has bin_x"             -> worker          (a question)
+  "put Asha on bin_x"         -> assign_worker   (a request to change)
+
+Choose exactly one. Output only the JSON object.
+
+MESSAGE:
+{message}"""
+
+
+async def parse_intent_llm(message: str) -> dict:
+    """Ask the acquired NLP engine what the user meant.
+
+    THE MODEL PROPOSES; THE MODULE DISPOSES. Two rules make this safe enough to
+    put in front of a live system:
+
+      1. The answer is VALIDATED against INTENTS. A model that invents
+         "delete_everything", returns prose, or wanders off the schema is
+         treated as a failed parse, not as an instruction.
+      2. It classifies ONLY. It never extracts ids or coordinates — those stay
+         with the regexes. A model that transcribes bin_eb6f4a5ad6c7 with one
+         hex digit wrong produces a confident lookup of the wrong bin, and
+         nothing downstream can tell. Regex either matches the real id or does
+         not match at all.
+
+    Any failure returns {"ok": False} and the caller falls back to keyword
+    routing, so the assistant is never worse off for having tried.
+    """
+    if not OLLAMA_URL:
+        return {"ok": False, "reason": "not_configured"}
+    result = await _request("POST", f"{OLLAMA_URL}/api/generate",
+                            timeout=LLM_TIMEOUT_S,
+                            json={"model": OLLAMA_MODEL, "stream": False,
+                                  "format": "json",
+                                  "prompt": PARSER_PROMPT.format(message=message)})
+    if not result["ok"]:
+        return result
+    raw = (result["data"] or {}).get("response")
+    if not isinstance(raw, str):
+        return {"ok": False, "reason": "empty_completion"}
+    # Small models like to wrap JSON in prose or a fenced block. Take the first
+    # object rather than insisting the whole reply parses.
+    match = re.search(r"\{.*?\}", raw, re.S)
+    if not match:
+        return {"ok": False, "reason": "unparseable"}
+    try:
+        parsed = json.loads(match.group(0))
+    except json.JSONDecodeError:
+        return {"ok": False, "reason": "unparseable"}
+    intent = parsed.get("intent")
+    if intent not in INTENT_ENDPOINTS:
+        # Includes None, a hallucinated name, and anything non-string.
+        return {"ok": False, "reason": f"invalid_intent:{str(intent)[:24]}"}
+    return {"ok": True, "intent": intent}
+
+
+async def resolve_intent(message: str, image: Optional[str]) -> tuple[str, str, Optional[str]]:
+    """(intent, parser, degraded_reason).
+
+    The acquired NLP engine first, keyword routing as the floor. Ordering is
+    deliberate: the model handles paraphrase the keyword table will never
+    cover — "my street is a tip and nobody has been round in a fortnight" — and
+    the keyword table handles the model being absent, slow or wrong, which on a
+    laptop with no Ollama is every single request.
+    """
+    fallback = detect_intent(message)
+    if not OLLAMA_URL:
+        return fallback, "keyword", None
+
+    parsed = await parse_intent_llm(message)
+    if parsed["ok"]:
+        return parsed["intent"], "llm", None
+    return fallback, "keyword", parsed["reason"]
+
+
+async def handle(message: str, image: Optional[str] = None,
+                 intent: Optional[str] = None) -> dict:
     """Route one message. Returns {intent, reply, data, degraded}.
 
     Every branch answers from module data or says plainly that it could not
     reach the module. Nothing here guesses at a figure — the vendor's own
     "never invent" rule, kept, and now enforceable because real numbers exist.
     """
-    intent = detect_intent(message)
+    intent = intent or detect_intent(message)
     # A photo with no obvious question is a report if it carries a location,
     # and an identification request otherwise.
     if image and intent == "offtopic":
@@ -861,6 +978,29 @@ def require_api_key(x_api_key: Optional[str] = Header(None)):
     return x_api_key
 
 
+class ChatResponse(BaseModel):
+    """The structured half of every answer.
+
+    `reply` is the vendor's contract and the human-readable half; everything
+    else is machine-readable, so a UI can render a card, a chart or a map
+    instead of a paragraph, and a caller can see exactly what happened.
+
+    Typed rather than a bare dict so the shape is enforced at runtime and shows
+    up in OpenAPI — an untyped response documents as "object" and tells an
+    integrator nothing.
+    """
+    reply: str = Field(..., description="Human-readable answer (vendor contract)")
+    intent: str = Field(..., description="Resolved intent")
+    endpoint: Optional[str] = Field(None, description="The API this intent maps to")
+    parser: str = Field(..., description='"llm" (acquired NLP engine) or "keyword" (fallback)')
+    source: str = Field(..., description='"llm" if the model phrased the reply, else "template"')
+    data: dict[str, Any] = Field(default_factory=dict,
+                                 description="Structured payload from the module that answered")
+    degraded: Optional[dict[str, str]] = Field(
+        None, description="What was skipped and why; null when everything succeeded")
+    history: list = Field(default_factory=list)
+
+
 class ChatRequest(BaseModel):
     """The vendor's request shape, plus one additive optional field.
 
@@ -882,8 +1022,14 @@ def health():
 
 @router.get("/intents")
 def intents(_=Depends(require_api_key)):
-    """What the assistant can actually do — useful for a UI to render chips."""
-    return {"intents": sorted(list(INTENTS) + ["offtopic"]),
+    """The routing table, as data.
+
+    Returns each intent with the API it maps to, so a UI can render chips and
+    an integrator can see the wiring without reading the source.
+    """
+    return {"parser": "llm+keyword" if OLLAMA_URL else "keyword",
+            "map": INTENT_ENDPOINTS,
+            "intents": sorted(INTENT_ENDPOINTS),
             "examples": {
                 "report_bin": "overflowing bin at 12.972,77.595",
                 "pickup_status": "what is happening with bin_1a2b3c4d5e6f",
@@ -896,7 +1042,8 @@ def intents(_=Depends(require_api_key)):
             }}
 
 
-@router.post("/chat")
+@router.post("/chat", response_model=ChatResponse,
+             response_model_exclude_none=False)
 async def chat(request: ChatRequest, _=Depends(require_api_key)):
     """Talk to the network. The vendor's contract: {message, history} -> {reply}.
 
@@ -914,9 +1061,15 @@ async def chat(request: ChatRequest, _=Depends(require_api_key)):
 
     history = request.history[-MAX_HISTORY_TURNS:] if request.history else []
 
-    outcome = await handle(message, request.image)
+    # 1. PARSE — the acquired NLP engine, validated, keyword routing beneath it.
+    intent, parser, parse_failure = await resolve_intent(message, request.image)
+
+    # 2. ACT — map the intent to an API call and run it.
+    outcome = await handle(message, request.image, intent)
     draft = outcome["reply"]
     degraded = dict(outcome["degraded"] or {})
+    if parse_failure:
+        degraded["intent_parser"] = parse_failure
 
     # --- optional: let the model say it more naturally --------------------
     source = "template"
@@ -934,21 +1087,24 @@ async def chat(request: ChatRequest, _=Depends(require_api_key)):
             degraded["llm"] = polished["reason"]
 
     record = {"id": app_store.new_id("cnv"), "message": message,
-              "intent": outcome["intent"], "source": source,
+              "intent": outcome["intent"], "parser": parser, "source": source,
               "degraded": degraded or None, "at": app_store.now()}
     data = app_store.read()
     data["conversations"].insert(0, record)
     data["conversations"] = data["conversations"][:500]
     app_store.write(data)
 
-    return {
-        "reply": reply,
-        "intent": outcome["intent"],
-        "data": outcome["data"],
-        "source": source,
-        "degraded": degraded or None,
-        "history": history + [{"user": message, "assistant": reply}],
-    }
+    # 3. RETURN — text for a person, JSON for a program, in one envelope.
+    return ChatResponse(
+        reply=reply,
+        intent=outcome["intent"],
+        endpoint=INTENT_ENDPOINTS.get(outcome["intent"]),
+        parser=parser,
+        source=source,
+        data=outcome["data"],
+        degraded=degraded or None,
+        history=history + [{"user": message, "assistant": reply}],
+    )
 
 
 @router.get("/conversations")
