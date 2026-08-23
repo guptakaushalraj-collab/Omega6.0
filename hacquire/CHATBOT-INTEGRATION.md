@@ -227,7 +227,60 @@ app.include_router(router)
 
 ---
 
-## 7. Sample endpoint
+## 7. Why the router is not fifty lines
+
+The obvious sketch of this module is a keyword `if/elif` over `requests.post`.
+It was written and run against the live network on :8000. **All five branches
+failed, and all five returned HTTP 200** with the error stringified into the
+reply — the worst outcome, because a caller cannot tell success from failure.
+
+| Sketch branch | Result | Cause |
+|---|---|---|
+| `report a bin` | `400` inside a 200 | `"lat,long"` placeholder is not coordinates |
+| `check pickup` | `401` inside a 200 | no `X-API-Key` |
+| `show analytics` | `404` inside a 200 | `/analytics/` — real path is `/analytics/analytics` |
+| `optimize route` | `405` inside a 200 | `GET` against a `POST` endpoint |
+| `assign worker` | `401` inside a 200 | no `Bearer` token |
+
+Before any of that, `def chat(message: str)` makes `message` a **query
+parameter**, so the documented body `{"message": "..."}` returns `422`. FastAPI
+treats bare scalars on a POST as query params; only a Pydantic model becomes a
+body.
+
+Three failures are structural rather than typos:
+
+**A status question sends a notification.** `check_pickup → POST /notify/pickup`
+maps a read onto a write. Measured: the int `binId` 422s first, so nothing is
+sent — but with a string id, `messages to the citizen: 0 → 1`. The collision is
+real, gated behind a second bug. Every "has my bin been collected?" would text
+a resident.
+
+**Hardcoded URLs.** Five occurrences of `http://localhost:8000`. A module whose
+targets are compiled in cannot be repointed at a buyer's host without a code
+change — which is the whole basis of the licence-back structure. Targets belong
+in the environment.
+
+**Substring intent matching.** `"any update on the report I filed"` →
+`report_bin`; `"the route is blocked, report it"` → `report_bin`;
+`"has my bin been collected"` → `unknown`. The same class of bug as `"hi"`
+matching inside `"this"`, found earlier in this module's own history.
+
+Also: `requests` is synchronous with no timeout, so one hung peer pins a
+threadpool worker indefinitely, and `response.json()` is unguarded — any
+non-JSON error body raises. Both were fixed in the acquired code for the same
+reasons.
+
+**What the production router adds, and why.** Not ceremony: auth that fails
+closed, env-resolved targets, bounded timeouts, `{ok, reason}` on every call,
+word-boundary intent matching, regex entity extraction, read/write separation,
+and a typed response. The `data`/`degraded` fields exist precisely so a
+degraded call is machine-detectable rather than a sentence a caller has to
+parse. The sketch's shape is right; each addition above is a specific failure
+it was measured producing.
+
+---
+
+## 8. Sample endpoint
 
 Captured against a seeded network, not written by hand:
 
@@ -261,7 +314,7 @@ LLM or keyword, `degraded` is `null` only when every step succeeded.
 
 ---
 
-## 8. The NLP engine, and its limits
+## 9. The NLP engine, and its limits
 
 The acquired LLM parses intent; keyword routing is the floor beneath it.
 
@@ -296,7 +349,7 @@ in `LICENSE` for any onward sale.
 
 ---
 
-## 9. Modularity — tradable and reusable
+## 10. Modularity — tradable and reusable
 
 `chatbot.py` copied alone into an empty directory outside the repo, nothing
 configured:
@@ -321,7 +374,7 @@ one"* — a new owner is told what to do, not that something is broken.
 
 ---
 
-## 10. Summary — the chatbot's role
+## 11. Summary — the chatbot's role
 
 The chatbot is the network's human front door. Six services expose forty-odd
 endpoints with three different auth schemes between them; a resident should not
