@@ -233,7 +233,7 @@ def optimize_route_alias(
 # TWO DEPLOYMENT SHAPES, ONE IMPLEMENTATION.
 #
 #   router — mount into any FastAPI app:
-#              app.include_router(router, prefix="route")
+#              app.include_router(router, prefix="/route")
 #   app    — run this module as its own service:
 #              uvicorn route_optimizer:app --port 8003
 #

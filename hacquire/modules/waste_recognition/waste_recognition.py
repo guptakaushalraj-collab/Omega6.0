@@ -209,6 +209,28 @@ async def classify_upload(photo: UploadFile = File(...), reference: str = ""):
     return _record(await photo.read(), reference or None)
 
 
+@router.post("/detect")
+def detect(body: ClassifyRequest):
+    """Detect the waste type of a photograph.
+
+    Short alias over POST /api/v1/classify, returning just the answer rather
+    than the full audit record.
+
+    TAKES AN IMAGE, NOT A binId. This module is a stateless leaf: it never sees
+    bin records, only bytes. Resolving a bin id would mean calling back into
+    bin_reporting, which would create a cycle and cost this module the
+    dependency-free property that makes it the registry's most sellable
+    component. To go from a bin id, use bin_reporting POST /detect — it owns
+    the record, and it caches, so it will not pay for inference twice.
+    """
+    rec = _record(_decode(body.image_base64), body.reference)
+    p = rec["prediction"]
+    return {"type": p["type"], "label": p["label"], "confidence": p["confidence"],
+            "recyclable": p["recyclable"], "hazardous": p["hazardous"],
+            "alternatives": p["alternatives"], "model_version": p["model_version"],
+            "classificationId": rec["id"], "reference": rec["reference"]}
+
+
 @router.get("/api/v1/classifications")
 def list_classifications(limit: int = 50):
     return store.read()["classifications"][: min(limit, AUDIT_CAP)]
@@ -226,7 +248,7 @@ def get_classification(cid: str):
 # TWO DEPLOYMENT SHAPES, ONE IMPLEMENTATION.
 #
 #   router — mount into any FastAPI app:
-#              app.include_router(router, prefix="waste")
+#              app.include_router(router, prefix="/waste")
 #   app    — run this module as its own service:
 #              uvicorn waste_recognition:app --port 8002
 #

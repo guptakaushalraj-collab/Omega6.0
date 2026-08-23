@@ -357,7 +357,38 @@ degrades, and collapsing them would hide exactly that. Prefer the JSON body:
 a base64 photo in a query string exceeds common request-line limits and gets
 copied into access logs, history and `Referer` headers.
 
-### Detecting waste type — `POST /detectWasteType` *(bin_reporting)*
+### Detecting waste type — two endpoints, two different keys
+
+`POST /detect` exists on **both** `bin_reporting` and `waste_recognition`, and
+the difference is the whole architecture in miniature:
+
+| | Key | Reaches | Use when |
+|---|---|---|---|
+| `bin_reporting` `POST /detect` | `binId` | its own records, cached | you have a reported bin |
+| `waste_recognition` `POST /detect` | `image_base64` | nothing — stateless | you have a photo |
+
+The classifier **cannot** take a `binId`. It is a stateless leaf that only ever
+sees bytes; resolving an id would mean calling back into `bin_reporting`,
+creating a cycle and costing it the dependency-free property that makes it the
+registry's most sellable component. So the id-keyed route lives with the module
+that owns the record, and it caches — asking twice does not pay for inference
+twice.
+
+```json
+// waste_recognition — POST /detect  {"image_base64": "<base64>"}
+{
+  "type": "e-waste", "label": "E-Waste", "confidence": 0.88,
+  "recyclable": true, "hazardous": true,
+  "alternatives": [
+    { "type": "glass", "label": "Glass", "confidence": 0.4 },
+    { "type": "paper", "label": "Paper", "confidence": 0.26 }
+  ],
+  "model_version": "stub-cv-1.0.0",
+  "classificationId": "cls_a2d1bc5c67ed", "reference": "bin_3e5dde47a201"
+}
+```
+
+### `POST /detectWasteType` *(bin_reporting)*
 
 ```json
 { "binId": "bin_90b813b2c556" }

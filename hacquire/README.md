@@ -56,7 +56,9 @@ uvicorn main:app --reload           # http://localhost:8000
 |---|---|
 | `POST /bin/report` | report a bin — short form, `{status, binId, location}` |
 | `POST /bin/reportBin` | report a bin — full form, returns the whole record |
+| `POST /bin/detect` | `{binId}` → `{type}` — short form |
 | `POST /bin/detectWasteType` | `{binId}` → `{type}` |
+| `POST /waste/detect` | `{image_base64}` → `{type}` — the classifier itself |
 | `GET  /route/optimizeRoute?bins=[...]` | ordered route |
 | `GET  /analytics/analytics` | chart-ready data |
 | `POST /notify/notifyPickup` | alert the citizen |

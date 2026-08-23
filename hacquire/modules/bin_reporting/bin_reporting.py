@@ -485,24 +485,23 @@ async def report_bin(body: ReportBinIn):
             "degraded": out["degraded"], "report": r}
 
 
-@router.post("/detectWasteType")
-async def detect_waste_type(body: DetectIn):
-    """Flat alias: {binId} -> {type}.
+async def detect_by_bin_id(bin_id: Optional[str], force: bool = False) -> dict:
+    """binId -> {type}. Shared by /detectWasteType and /detect.
 
     LIVES HERE, NOT IN waste_recognition, because it is keyed by binId — and
     that module is a stateless leaf that never sees bin records, only image
     bytes. Giving it binId lookup would force a call back to this module,
     creating a cycle and destroying the dependency-free property that makes it
-    the registry's most sellable component.
+    the registry's most sellable component. The classifier's own short alias,
+    waste_recognition POST /detect, takes an IMAGE for exactly that reason.
     """
-    bin_id = body.binId or body.bin_id
     if not bin_id:
         raise HTTPException(400, "binId is required")
 
     # Answer from the stored classification rather than paying for another
     # inference call, unless the caller explicitly forces a re-run.
     existing = next((r for r in store.read()["reports"] if r["id"] == bin_id), None)
-    if existing and existing.get("classification") and not body.force:
+    if existing and existing.get("classification") and not force:
         c = existing["classification"]
         return {"binId": bin_id, "type": c["type"], "label": c["label"],
                 "confidence": c["confidence"], "cached": True}
@@ -520,11 +519,39 @@ async def detect_waste_type(body: DetectIn):
     raise HTTPException(status, msg)
 
 
+@router.post("/detectWasteType")
+async def detect_waste_type(body: DetectIn):
+    """Flat alias: {binId} -> {type}."""
+    return await detect_by_bin_id(body.binId or body.bin_id, body.force)
+
+
+@router.post("/detect")
+async def detect(
+    body: Optional[DetectIn] = None,
+    binId: Optional[str] = Query(None, description="Bin id, e.g. bin_90b813b2c556"),
+    force: bool = Query(False, description="Re-run inference instead of using the cached answer"),
+):
+    """Detect waste type for a reported bin.
+
+    Short form of /detectWasteType, accepting binId as a JSON body or a query
+    parameter. Returns {binId, type} plus the label, confidence and whether the
+    answer came from cache.
+
+    NOTE ON binId TYPE: ids are STRINGS (`bin_90b813b2c556`), not integers. The
+    classifier, dispatcher and analytics all key off that format, so a numeric
+    id would not round-trip through the pipeline.
+    """
+    return await detect_by_bin_id(
+        (body.binId or body.bin_id) if body else binId,
+        (body.force if body else False) or force,
+    )
+
+
 # --------------------------------------------------------------- packaging
 # TWO DEPLOYMENT SHAPES, ONE IMPLEMENTATION.
 #
 #   router — mount into any FastAPI app:
-#              app.include_router(router, prefix="bin")
+#              app.include_router(router, prefix="/bin")
 #   app    — run this module as its own service:
 #              uvicorn bin_reporting:app --port 8001
 #

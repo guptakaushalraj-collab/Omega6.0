@@ -317,7 +317,7 @@ def analytics(days: int = 7):
 # TWO DEPLOYMENT SHAPES, ONE IMPLEMENTATION.
 #
 #   router — mount into any FastAPI app:
-#              app.include_router(router, prefix="analytics")
+#              app.include_router(router, prefix="/analytics")
 #   app    — run this module as its own service:
 #              uvicorn analytics_dashboard:app --port 8004
 #

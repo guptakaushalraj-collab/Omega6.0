@@ -303,7 +303,7 @@ def notify_pickup(body: PickupIn, _=Depends(require_api_key)):
 # TWO DEPLOYMENT SHAPES, ONE IMPLEMENTATION.
 #
 #   router — mount into any FastAPI app:
-#              app.include_router(router, prefix="notify")
+#              app.include_router(router, prefix="/notify")
 #   app    — run this module as its own service:
 #              uvicorn notification_system:app --port 8005
 #

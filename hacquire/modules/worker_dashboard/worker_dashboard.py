@@ -455,7 +455,7 @@ async def worker_queue(wid: str, _=Depends(require_bearer)):
 # TWO DEPLOYMENT SHAPES, ONE IMPLEMENTATION.
 #
 #   router — mount into any FastAPI app:
-#              app.include_router(router, prefix="worker")
+#              app.include_router(router, prefix="/worker")
 #   app    — run this module as its own service:
 #              uvicorn worker_dashboard:app --port 8006
 #
