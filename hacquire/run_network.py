@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Intelligent Waste Collection Network — six-process network launcher.
+"""Intelligent Waste Collection Network — multi-process network launcher.
 
 HACQUIRE 2026. Boots the six independent FastAPI modules as SEPARATE
 PROCESSES and injects each one's dependency URLs as environment variables.
 
-This is the DISTRIBUTED deployment: six processes, six ports, talking over
-HTTP. For the single-process deployment — all six mounted as routers in one
+This is the DISTRIBUTED deployment: seven processes, seven ports, talking
+over HTTP. For the single-process deployment — all six mounted as routers in one
 app — see main.py. Both drive the same module code.
 
 This file is a convenience, never a dependency. Nothing in modules/ imports
@@ -19,7 +19,7 @@ environment variables handed to processes — and never by shared imports.
 
 Usage
 -----
-    python run_network.py                     # start all six
+    python run_network.py                     # start all seven
     python run_network.py --reset             # wipe every datastore, then start
     python run_network.py bin_reporting       # start one module only
     python run_network.py --list              # show the registry and exit
@@ -60,12 +60,14 @@ PORTS = {
     "analytics_dashboard": int(env("ANALYTICS_DASHBOARD_PORT", "8004")),
     "notification_system": int(env("NOTIFICATION_SYSTEM_PORT", "8005")),
     "worker_dashboard":    int(env("WORKER_DASHBOARD_PORT", "8006")),
+    "chat_assistant":      int(env("CHAT_ASSISTANT_PORT", "8007")),
 }
 
 HOST = env("HOST", "0.0.0.0")
 REACH = env("SERVICE_HOST", "localhost")   # how modules address EACH OTHER
 NOTIFY_API_KEY = env("NOTIFY_API_KEY", "dev-signalpost-key")
 CREW_AUTH_TOKEN = env("CREW_AUTH_TOKEN", "dev-fieldops-token")
+CHAT_API_KEY = env("CHAT_API_KEY", "dev-suvida-key")
 
 
 def url(module: str) -> str:
@@ -102,6 +104,17 @@ REGISTRY = [
         "ANALYTICS_URL":         url("analytics_dashboard"),
         "CREW_AUTH_TOKEN":       CREW_AUTH_TOKEN,
     }),
+    # Last: it reads from the other five, so booting it after them keeps the
+    # first log line honest. It tolerates all of them being absent regardless.
+    ("chat_assistant",      "BOUGHT — Suvida Chatbot",   lambda: {
+        "BIN_REPORTING_URL":    url("bin_reporting"),
+        "ANALYTICS_URL":        url("analytics_dashboard"),
+        "WORKER_DASHBOARD_URL": url("worker_dashboard"),
+        "CREW_AUTH_TOKEN":      CREW_AUTH_TOKEN,
+        "CHAT_API_KEY":         CHAT_API_KEY,
+        # Unset by default: the assistant answers from templates without it.
+        "OLLAMA_URL":           env("OLLAMA_URL", ""),
+    }),
 ]
 
 NAMES = [name for name, _, _ in REGISTRY]
@@ -133,7 +146,7 @@ def main() -> None:
     flags = {a for a in sys.argv[1:] if a.startswith("-")}
 
     if "--list" in flags:
-        print("Intelligent Waste Collection Network — six independent modules\n")
+        print("Intelligent Waste Collection Network — seven independent modules\n")
         for name, banner, _ in REGISTRY:
             print(f"  {name:<22} :{PORTS[name]:<6} {banner}")
         return

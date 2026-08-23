@@ -32,6 +32,11 @@ pydantic>=2
 #   analytics_dashboard  fastapi uvicorn pydantic
 #   notification_system  fastapi uvicorn pydantic
 #   worker_dashboard     fastapi uvicorn pydantic httpx
+#   chat_assistant       fastapi uvicorn pydantic httpx
+#
+# chat_assistant adds NO new dependency. The acquired module used `requests`
+# for its LLM call; that call is now httpx, which the network already needs —
+# one fewer package, and the call becomes async and timeout-bounded.
 #
 # python-dotenv is used only by the entrypoints (main.py, run_network.py),
 # never by a module — a module reads os.environ and does not care who filled

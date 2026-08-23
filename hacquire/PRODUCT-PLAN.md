@@ -2,7 +2,7 @@
 ## Intelligent Waste Collection Network
 
 **Stack:** Python 3.11 · FastAPI · Pydantic v2 · httpx · uvicorn
-**Shape:** six independently deployable, independently tradable services
+**Shape:** seven independently deployable, independently tradable services
 
 Every endpoint, payload and figure below was executed against the running mesh
 before being written down. Nothing here is illustrative-only.
@@ -15,10 +15,10 @@ before being written down. Nothing here is illustrative-only.
 hacquire/                                   PROJECT ROOT
 │
 ├── main.py                                 SINGLE-PROCESS deployment. Mounts all
-│                                           six as routers in one FastAPI app:
+│                                           seven as routers in one FastAPI app:
 │                                           uvicorn main:app
 │
-├── run_network.py                          DISTRIBUTED deployment. Boots the six
+├── run_network.py                          DISTRIBUTED deployment. Boots the seven
 │                                           as SEPARATE PROCESSES and injects
 │                                           each one's dependency URLs. Neither
 │                                           file is a dependency — no module
@@ -33,7 +33,7 @@ hacquire/                                   PROJECT ROOT
 │                                           .env. All values have working
 │                                           defaults — it runs with no .env.
 │
-├── modules/                                SIX TRADABLE SERVICES
+├── modules/                                SEVEN TRADABLE SERVICES
 │   │                                       ONE MODULE IS ONE FILE, exposing two
 │   │                                       handles: `router` (the unit of
 │   │                                       COMPOSITION) and `app` (the unit of
@@ -92,6 +92,18 @@ hacquire/                                   PROJECT ROOT
 │       │                                   translation for the OTHER acquired
 │       │                                   module, at the call site.
 │       └── mocks/{workers,assignments}.json
+│   │
+│   └── chat_assistant/
+│       ├── chat_assistant.py               :8007  BOUGHT — Suvida Chatbot
+│       │                                   Conversational front door. Routes
+│       │                                   intents to five other modules over
+│       │                                   HTTP; a local LLM only rephrases
+│       │                                   and is entirely optional.
+│       └── mocks/
+│           ├── conversations.json
+│           └── vendor_prompt_transport.txt PRESERVED vendor asset — the
+│                                           original TravelBuddy persona,
+│                                           resaleable to a transit operator
 │
 ├── README.md                               Run instructions + design rules
 └── PRODUCT-PLAN.md                         This document
@@ -99,7 +111,7 @@ hacquire/                                   PROJECT ROOT
 
 **Two deployments, one implementation.** `uvicorn main:app` runs everything in
 one process behind prefixes (`POST /bin/reportBin`); `python run_network.py`
-runs six services on six ports (`POST /reportBin`). Composition is cheaper to
+runs seven services on seven ports (`POST /reportBin`). Composition is cheaper to
 operate and demo, but it costs the three sold modules their independent
 deploy, scale and release — and prefixes every published path. Exposing both
 `router` and `app` means that choice stays reversible, and a buyer still
@@ -293,7 +305,7 @@ an error.
 ```bash
 pip install fastapi uvicorn pydantic httpx python-multipart
 uvicorn main:app                              # one process, prefixed paths
-python hacquire/run_network.py                # six processes, six ports
+python hacquire/run_network.py                # seven processes, seven ports
 # or standalone:
 cd hacquire/modules/waste_recognition && uvicorn waste_recognition:app --port 8002
 ```
@@ -313,6 +325,7 @@ original vendor conventions rather than being normalised.
 | analytics_dashboard | 8004 | `/api/v1` | none |
 | notification_system | 8005 | `/v1` | `X-API-Key` |
 | worker_dashboard | 8006 | `/v1` | `Authorization: Bearer` |
+| chat_assistant | 8007 | *(flat)* | `X-API-Key` |
 
 ### Reporting bins — `POST /reportBin` *(bin_reporting)*
 
@@ -553,6 +566,58 @@ product into field service, logistics and utilities, and that domain-neutral
 core is what keeps its resale value beyond waste collection. Verified — an
 assignment record carries `job_ref` and no `binId`.
 
+### Conversation — `POST /chat` *(chat_assistant)*
+
+```bash
+curl -X POST localhost:8007/chat -H "X-API-Key: dev-suvida-key" \
+     -H 'Content-Type: application/json' \
+     -d '{"message":"there is an overflowing bin at 12.972,77.595"}'
+```
+
+**Live response** `200`:
+
+```json
+{
+  "reply": "Logged — reference bin_f4f67b11bac5. Asha Kumar has been assigned.",
+  "intent": "report_bin",
+  "source": "template",
+  "degraded": { "intake_enrichment": "{\"classification\": \"no_photo_supplied\"}" },
+  "data": { "binId": "bin_f4f67b11bac5", "status": "assigned",
+            "assignedWorker": "Asha Kumar" },
+  "history": [ { "user": "there is an overflowing bin at 12.972,77.595",
+                 "assistant": "Logged — reference bin_f4f67b11bac5. …" } ]
+}
+```
+
+`reply`, `message` and `history` are the vendor's contract, unchanged. The
+other keys are additive, so a client written against the acquired API still
+works: `intent` and `data` let a UI render a card instead of a wall of text,
+`source` says whether a model was involved, `degraded` names what was skipped.
+
+**Six intents, routed deterministically** — 18/18 on the routing test set:
+
+| Intent | Reaches |
+|---|---|
+| `report_bin` | `bin_reporting` `POST /reportBin` |
+| `pickup_status` | `bin_reporting` **and** `worker_dashboard`, reconciled |
+| `analytics` | `analytics_dashboard` `GET /analytics` |
+| `route` | `worker_dashboard` queue → `route_optimizer` |
+| `worker` | `worker_dashboard` workers / assignments |
+| `help` · `offtopic` | answered locally |
+
+**Reconciliation.** `bin_reporting` owns the report; `worker_dashboard` owns
+the job. A completed assignment is never pushed back to `bin_reporting` —
+doing so would make a domain-neutral, resaleable module learn what a bin is —
+so the report can still read `assigned` after the bin is emptied. Verified
+live: report `assigned`, crew `completed`, analytics `collected`. The
+assistant is the only component that already talks to both, so it reconciles
+and trusts the crew record, reporting *"bin_f4f6… has been cleared"* with the
+divergence recorded in `data.reconciled`. Telling a citizen standing beside an
+empty bin that it has not been collected is the one wrong answer that costs
+trust in the whole service.
+
+**Also:** `GET /health` · `GET /intents` (auth) · `GET /conversations` (auth)
+
 ### Worker dashboard — `GET /v1/workers/{id}/queue` *(worker_dashboard)*
 
 **Live response** `200`:
@@ -700,10 +765,44 @@ async def collection_pipeline():
 ### HACQUIRE compliance
 
 > **Rule: at least one purchase is mandatory.**
-> **Status: SATISFIED — two purchases**, `notification_system` and
-> `worker_dashboard`. Both are integrated and load-bearing in the live
-> pipeline, not shelf-ware: dispatch, routing and every notification flow
-> through them.
+> **Status: SATISFIED — three purchases**, `notification_system`,
+> `worker_dashboard` and `chat_assistant`. All three are integrated and
+> load-bearing, not shelf-ware: dispatch, routing and every notification flow
+> through the first two, and the third is the product's entire conversational
+> surface.
+
+**`chat_assistant`** (Suvida Chatbot, `AniketCodes76/suvida_chatbot` @
+`e207819`) — acquired as a *public-transport* assistant. Word counts against
+the source say it plainly: bus 2, train 2, metro 1, tram 1, waste 0, bin 0,
+recycling 0, collection 0.
+
+What we valued was the **shell and the contract**, not the content:
+
+| | |
+|---|---|
+| **Kept** | `POST /chat`, `X-API-Key`, `{message, history}` → `{reply}` — existing clients keep working |
+| **Replaced** | the TravelBuddy persona; there was no waste content to adapt, so it was rewritten |
+| **Preserved** | that persona verbatim in `mocks/vendor_prompt_transport.txt` — it is the resaleable half of the asset and deleting it would destroy that value |
+| **Added** | intent routing to five modules; the shipped bot was connected to nothing and said so itself |
+| **Fixed** | a fail-open auth hole (below) |
+
+**Diligence found a live vulnerability.** The shipped auth was
+`if x_api_key != API_KEY: raise 401`, with `API_KEY = os.getenv("API_KEY")`
+and no fallback. `.env` is gitignored, so a fresh clone has no key: the
+constant is `None`, a request with **no header** is also `None`, and
+`None != None` is `False`. The endpoint authenticated unauthenticated callers.
+Reproduced against the acquired source before rewriting; now fails closed —
+a missing header is rejected on its own terms and the key always has a value.
+An acquisition is only as safe as the diligence done on it, and this one
+shipped an open door.
+
+**The LLM is optional, deliberately.** The vendor hard-wired a call to a local
+Ollama model with no timeout, from a sync route. Here the model only rephrases
+an answer already computed from module data, on a separate bounded budget; with
+`OLLAMA_URL` unset — the default — every reply comes from a template and
+`source` says so. The feature therefore works on a judge's laptop, in CI, and
+offline. A conversational feature that requires a 2 GB model download to demo
+is not a feature.
 
 ### The structural catch — and the fix
 
@@ -755,9 +854,13 @@ production hardening; counterparty negotiation.
 2. **Three channels do not deliver.** `sms`/`email`/`push` accept and queue but
    send nothing. Disclosed in the licence, README and `.env.example` — it must
    not be discovered after signing.
-3. **Concentration.** Divesting three of six leaves two purchased modules under
-   proprietary licence. A lost licence-back would require replacing three
+3. **Concentration.** Divesting three of seven leaves three purchased modules
+   under proprietary licence. A lost licence-back would require replacing three
    capabilities at once — mechanical, thanks to the indirection, but real.
+4. **`chat_assistant` price not yet recorded.** The other six carry settled
+   figures; this acquisition closed after the ledger was drawn up. The
+   consideration needs entering before the ledger is final — it is left blank
+   here rather than estimated.
 
 ---
 
@@ -776,9 +879,10 @@ production hardening; counterparty negotiation.
 - **Divested:** `waste_recognition` $42k · `analytics_dashboard` $35k ·
   `route_optimizer` $28k → **$105,000**.
 - **Retained:** `worker_dashboard` (escrowed source, vertical-agnostic) ·
-  `notification_system` (support window closes 2027-03-14).
+  `notification_system` (support window closes 2027-03-14) · `chat_assistant`
+  (re-personed from public transport; diligence caught a fail-open auth hole).
 - **Consulting slot:** 30 min, verification and risk sign-off.
-- **HACQUIRE compliance:** two purchases — mandatory minimum exceeded.
+- **HACQUIRE compliance:** three purchases — mandatory minimum exceeded.
 - **The catch:** both retained modules consume all three sold. Licence-back
   keeps the product alive; repointing is an env var, not a code change.
 

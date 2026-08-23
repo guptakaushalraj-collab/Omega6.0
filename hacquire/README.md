@@ -71,13 +71,14 @@ uvicorn main:app --reload           # http://localhost:8000
 | `POST /notify/pickup` | alert the citizen — short form |
 | `POST /notify/notifyPickup` | alert the citizen — full form |
 | `POST /worker/assign` | assign a worker to a bin — named or automatic |
+| `POST /chat/chat` | talk to the network in plain language |
 | `GET  /` | the registry and the full path map |
 
-**Six processes** — one service per port, the shape the trading positions
+**Seven processes** — one service per port, the shape the trading positions
 assume:
 
 ```bash
-python run_network.py               # all six, dependencies pre-wired
+python run_network.py               # all seven, dependencies pre-wired
 python run_network.py --reset       # wipe every datastore first
 python run_network.py bin_reporting # just one
 python run_network.py --list        # the registry, then exit
@@ -110,6 +111,7 @@ own base paths, auth schemes and error envelopes underneath their prefix.
 | `analytics_dashboard` | 8004 | **SOLD** $35,000 |
 | `notification_system` | 8005 | **BOUGHT** — SignalPost Relay 2.4.1 |
 | `worker_dashboard` | 8006 | **BOUGHT** — FieldOps Crew 3.1.0 |
+| `chat_assistant` | 8007 | **BOUGHT** — Suvida Chatbot |
 
 ## Verify the pipeline
 
@@ -143,6 +145,39 @@ curl localhost:8004/analytics
 `degraded: null` means every enrichment succeeded. Anything else names what
 was skipped and why.
 
+## Talking to it
+
+`chat_assistant` is the conversational front door — report a bin, chase a
+pickup, read the numbers, ask who is on a round.
+
+```bash
+curl -X POST localhost:8007/chat -H "X-API-Key: dev-suvida-key" \
+     -H 'Content-Type: application/json' \
+     -d '{"message":"there is an overflowing bin at 12.972,77.595"}'
+# → "Logged — reference bin_f4f67b11bac5. Asha Kumar has been assigned."
+```
+
+| You say | It does |
+|---|---|
+| "overflowing bin at 12.972,77.595" | files it through `bin_reporting`, classifies, dispatches |
+| "has bin_f4f6… been collected" | reads `bin_reporting` **and** `worker_dashboard`, reconciles |
+| "how are we doing this week" | pulls live KPIs from `analytics_dashboard` |
+| "what is on Asha's round" | sequenced stops via `worker_dashboard` → `route_optimizer` |
+| "who is assigned to bin_f4f6…" | the crew record for that job |
+| anything else | declines, and says what it does cover |
+
+**No LLM required.** Intent routing and every answer are deterministic; a
+local model only rephrases, and only if `OLLAMA_URL` is set. With it unset —
+the default, and the normal case on a judge's laptop — replies come from
+templates and `source` reports `"template"`. Facts always come from the
+modules; the model is never allowed to be the source of one.
+
+**It tells the truth when things are down.** With `analytics_dashboard`
+killed: *"The analytics service is not answering, so I have no figures to give
+you. I would rather say that than guess."* With every other module killed, the
+assistant still answers, still routes intents, and names what it could not
+reach in `degraded`.
+
 ## Design rules
 
 1. **No shared code.** Each module vendors its own `Store` class. No module
@@ -160,7 +195,15 @@ was skipped and why.
    skipped. It never fails the pipeline. *Verified:* with no routing provider
    reachable at all, the queue still returned all four stops with
    `optimized:false, degraded_reason:"unreachable"`.
-5. **Acquired modules keep vendor conventions.** `notification_system` and
+5. **An acquired module is re-personed, not re-plumbed.** `chat_assistant`
+   was bought as a *public-transport* assistant (`AniketCodes76/suvida_chatbot`
+   — bus 2, train 2, metro 1, waste 0). Its API contract is kept exactly
+   (`POST /chat`, `X-API-Key`, `{message, history}` → `{reply}`); only the
+   persona is replaced, and the original transport prompt is preserved in
+   `modules/chat_assistant/mocks/vendor_prompt_transport.txt` because it is the
+   part of that asset with resale value to a transit operator.
+
+6. **Acquired modules keep vendor conventions.** `notification_system` and
    `worker_dashboard` retain their original base paths, auth schemes, casing
    and error envelopes — normalising them would break existing SDKs and
    destroy resale value. Adaptation is carried at the call site.
@@ -172,6 +215,12 @@ was skipped and why.
    missing / 403 wrong credentials, in `{"error":{"code","message"}}` for
    SignalPost and flat `{"error","detail"}` for FieldOps.
 
+7. **Inherited security defects are fixed at intake.** The acquired chatbot
+   authenticated with `x_api_key != os.getenv("API_KEY")`. Unset env var →
+   `None`; absent header → `None`; `None != None` is `False` — so a fresh
+   clone, which has no `.env`, let *unauthenticated* callers through. Verified
+   against the acquired source, then fixed to fail closed.
+
 ## Relationship to `../modules/`
 
 This repository carries **two implementations of the same product**:
@@ -180,10 +229,10 @@ This repository carries **two implementations of the same product**:
 |---|---|---|
 | Stack | Python · FastAPI | Node.js · Express |
 | Layout | one file per module, `router` + `app` | package per module |
-| Ports | 8001–8006 | 4101–4106 |
+| Ports | 8001–8007 | 4101–4106 |
 | Status | HACQUIRE 2026 submission | Working reference, 47 integration + 67 compliance checks passing |
 
-Same six modules, same capability contracts, same degradation rules, same
+Same core six modules, same capability contracts, same degradation rules, same
 trading positions. The Node tree was built first, when the language was left
 open; the Python tree is the submission now that FastAPI is the specified
 stack. The Node tree is kept because it carries the passing test suites and

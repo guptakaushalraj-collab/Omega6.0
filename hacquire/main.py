@@ -1,10 +1,10 @@
 """Intelligent Waste Collection Network — single-process deployment.
 
-Mounts all six modules as routers in ONE FastAPI app:
+Mounts all seven modules as routers in ONE FastAPI app:
 
     uvicorn main:app --reload
 
-The distributed deployment — six processes on six ports, talking over HTTP —
+The distributed deployment — seven processes on seven ports, over HTTP —
 is `run_network.py`. Both drive exactly the same module code: every module
 exposes a `router` (the unit of composition, used here) and an `app` (the unit
 of sale, used there). Choosing one deployment today does not foreclose the
@@ -12,7 +12,7 @@ other, and a buyer still receives a whole service rather than a fragment.
 
 WHAT COMPOSITION COSTS. Worth stating plainly, because it is the trade this
 file makes:
-  · one process, so one module's crash or memory leak takes down all six;
+  · one process, so one module's crash or memory leak takes down all seven;
   · one dependency set and one release, so the three SOLD modules can no
     longer be deployed, scaled or versioned by their buyers independently;
   · every path gains a prefix — POST /reportBin becomes POST /bin/reportBin —
@@ -57,6 +57,7 @@ for _var, _prefix in (
     ("ANALYTICS_URL",         "/analytics"),
     ("NOTIFICATION_URL",      "/notify"),
     ("WORKER_DASHBOARD_URL",  "/worker"),
+    ("BIN_REPORTING_URL",     "/bin"),
 ):
     os.environ.setdefault(_var, SELF_BASE_URL + _prefix)
 
@@ -64,6 +65,7 @@ from fastapi import FastAPI                                              # noqa:
 
 from modules.analytics_dashboard.analytics_dashboard import router as analytics_router  # noqa: E402
 from modules.bin_reporting.bin_reporting import router as bin_router                    # noqa: E402
+from modules.chat_assistant.chat_assistant import router as chat_router                 # noqa: E402
 from modules.notification_system.notification_system import router as notify_router     # noqa: E402
 from modules.route_optimizer.route_optimizer import router as route_router              # noqa: E402
 from modules.waste_recognition.waste_recognition import router as waste_router          # noqa: E402
@@ -78,6 +80,7 @@ app.include_router(route_router, prefix="/route", tags=["route_optimizer"])
 app.include_router(analytics_router, prefix="/analytics", tags=["analytics_dashboard"])
 app.include_router(notify_router, prefix="/notify", tags=["notification_system"])
 app.include_router(worker_router, prefix="/worker", tags=["worker_dashboard"])
+app.include_router(chat_router, prefix="/chat", tags=["chat_assistant"])
 
 
 @app.get("/", tags=["network"])
@@ -85,7 +88,7 @@ def index():
     """The registry, and where each module answers under composition."""
     return {
         "service": "Intelligent Waste Collection Network",
-        "deployment": "single-process — six routers, one app",
+        "deployment": "single-process — seven routers, one app",
         "modules": {
             "bin_reporting":       {"prefix": "/bin",       "position": "HELD"},
             "waste_recognition":   {"prefix": "/waste",     "position": "SOLD $42,000"},
@@ -93,6 +96,7 @@ def index():
             "analytics_dashboard": {"prefix": "/analytics", "position": "SOLD $35,000"},
             "notification_system": {"prefix": "/notify",    "position": "BOUGHT — SignalPost Relay 2.4.1"},
             "worker_dashboard":    {"prefix": "/worker",    "position": "BOUGHT — FieldOps Crew 3.1.0"},
+            "chat_assistant":      {"prefix": "/chat",      "position": "BOUGHT — Suvida Chatbot"},
         },
         "flat_api": {
             "reportBin":       "POST /bin/reportBin",
@@ -100,6 +104,7 @@ def index():
             "optimizeRoute":   "GET  /route/optimizeRoute?bins=[...]",
             "analytics":       "GET  /analytics/analytics",
             "notifyPickup":    "POST /notify/notifyPickup",
+            "chat":            "POST /chat/chat",
         },
         "docs": "/docs",
     }
