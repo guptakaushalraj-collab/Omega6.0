@@ -1,0 +1,45 @@
+{
+  "name": "offline-investment-manager",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Offline-first investment management website — React + Material UI, Node.js + Express, SQLite",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "db:migrate": "node database/migrate.js",
+    "db:seed": "node database/migrate.js --seed",
+    "db:reset": "node database/migrate.js --reset --seed",
+    "dev": "npm run db:migrate && concurrently -n backend,frontend -c blue,magenta \"npm:dev:backend\" \"npm:dev:frontend\"",
+    "dev:backend": "npm run dev --workspace backend",
+    "dev:frontend": "npm run dev --workspace frontend",
+    "build": "npm run build --workspace frontend",
+    "start": "npm run start --workspace backend",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "npm run test:backend && npm run test:frontend",
+    "test:backend": "node --test \"tests/backend/**/*.test.js\"",
+    "test:frontend": "vitest run"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.15.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.0.1",
+    "@vitejs/plugin-react": "^4.3.3",
+    "concurrently": "^9.1.0",
+    "eslint": "^9.15.0",
+    "eslint-plugin-react": "^7.37.2",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "fake-indexeddb": "^6.2.5",
+    "globals": "^15.12.0",
+    "jsdom": "^25.0.1",
+    "supertest": "^7.0.0",
+    "vitest": "^3.2.4"
+  }
+}

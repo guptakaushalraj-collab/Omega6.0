@@ -1,0 +1,19 @@
+{
+  "name": "@investment/backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Express + SQLite API for the offline-first investment manager",
+  "license": "MIT",
+  "main": "src/app.js",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.5.0",
+    "cors": "^2.8.5",
+    "express": "^4.21.1",
+    "morgan": "^1.10.0"
+  }
+}

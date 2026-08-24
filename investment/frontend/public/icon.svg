@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Investment Manager">
+  <rect width="64" height="64" rx="14" fill="#1b5e5f"/>
+  <path d="M14 42l10-11 8 7 12-16" fill="none" stroke="#7fd1c1" stroke-width="5"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="44" cy="22" r="4" fill="#f2b544"/>
+</svg>

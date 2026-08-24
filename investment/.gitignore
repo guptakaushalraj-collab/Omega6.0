@@ -1,0 +1,23 @@
+node_modules/
+dist/
+build/
+coverage/
+
+# SQLite database files — recreated by `npm run db:migrate`
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+database/data/
+
+# Secrets — .env.example is the tracked template
+.env
+.env.local
+.env.*.local
+!.env.example
+
+*.log
+npm-debug.log*
+.DS_Store
+.vscode/
+.idea/
